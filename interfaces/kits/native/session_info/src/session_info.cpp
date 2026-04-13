@@ -371,6 +371,11 @@ bool SessionInfo::DoMarshallingSeven(Parcel& parcel) const
         return false;
     }
 
+    if (!parcel.WriteBool(nativeHideWindow)) {
+        ABILITYBASE_LOGE("Write nativeHideWindow failed");
+        return false;
+    }
+
     // other params need place before want
     if (!parcel.WriteParcelable(&want)) {
         ABILITYBASE_LOGE("Write want failed");
@@ -467,6 +472,7 @@ SessionInfo* SessionInfo::ReadParcelTwo(SessionInfo* info, Parcel& parcel)
     info->hostBundleName = parcel.ReadString();
     info->frameNum = parcel.ReadInt32();
     info->callerTypeForAnco = parcel.ReadInt32();
+    info->nativeHideWindow = parcel.ReadBool();
     std::unique_ptr<Want> want(parcel.ReadParcelable<Want>());
     if (want != nullptr) {
         info->want = *want;
