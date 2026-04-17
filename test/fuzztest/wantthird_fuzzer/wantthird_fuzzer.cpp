@@ -29,6 +29,16 @@ using namespace OHOS::AAFwk;
 namespace OHOS {
 namespace {
 constexpr size_t U32_AT_SIZE = 4;
+
+void TryParseWantFromString(const std::string &jsonInput)
+{
+    std::string json = jsonInput;
+    Want *parsedWant = Want::FromString(json);
+    if (parsedWant != nullptr) {
+        delete parsedWant;
+        parsedWant = nullptr;
+    }
+}
 }
 uint32_t GetU32Data(const char* ptr)
 {
@@ -36,31 +46,31 @@ uint32_t GetU32Data(const char* ptr)
     return (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];
 }
 
-void DoReadFromJsonFirst(std::shared_ptr<Want> want)
+void DoReadFromJsonFirst()
 {
-    nlohmann::json noBundleName = "{"
+    std::string noBundleName = "{"
         "\"deviceId\": \"teset_deviceId\""
     "}";
 
-    nlohmann::json noAbilityName = "{"
+    std::string noAbilityName = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\""
     "}";
 
-    nlohmann::json noUri = "{"
+    std::string noUri = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\""
     "}";
 
-    nlohmann::json noType = "{"
+    std::string noType = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
         "\"uri\": \"teset_uri\""
     "}";
 
-    nlohmann::json noFlags = "{"
+    std::string noFlags = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -68,7 +78,7 @@ void DoReadFromJsonFirst(std::shared_ptr<Want> want)
         "\"type\": \"teset_type\""
     "}";
 
-    nlohmann::json noAction = "{"
+    std::string noAction = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -76,19 +86,27 @@ void DoReadFromJsonFirst(std::shared_ptr<Want> want)
         "\"type\": \"teset_type\","
         "\"flags\": \"teset_flags\""
     "}";
-    if (want != nullptr) {
-        want->ReadFromJson(noBundleName);
-        want->ReadFromJson(noAbilityName);
-        want->ReadFromJson(noUri);
-        want->ReadFromJson(noType);
-        want->ReadFromJson(noFlags);
-        want->ReadFromJson(noAction);
-    }
+    TryParseWantFromString(noBundleName);
+    TryParseWantFromString(noAbilityName);
+    TryParseWantFromString(noUri);
+    TryParseWantFromString(noType);
+    TryParseWantFromString(noFlags);
+    TryParseWantFromString(noAction);
 }
 
-void DoReadFromJsonSecond(std::shared_ptr<Want> want)
+void DoReadFromJsonSecond()
 {
-    nlohmann::json noParameters = "{"
+    std::string noParameters = "{"
+        "\"deviceId\": \"teset_deviceId\","
+        "\"bundleName\": \"teset_bundleName\","
+        "\"abilityName\": \"teset_abilityName\","
+        "\"uri\": \"teset_uri\","
+        "\"type\": \"teset_type\","
+        "\"flags\": \"teset_flags\","
+        "\"action\": \"teset_action\","
+        "\"entities\": \"teset_entities\""
+    "}";
+    std::string noEntities = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -98,17 +116,7 @@ void DoReadFromJsonSecond(std::shared_ptr<Want> want)
         "\"action\": \"teset_action\","
         "\"parameters\": \"teset_parameters\""
     "}";
-    nlohmann::json noEntities = "{"
-        "\"deviceId\": \"teset_deviceId\","
-        "\"bundleName\": \"teset_bundleName\","
-        "\"abilityName\": \"teset_abilityName\","
-        "\"uri\": \"teset_uri\","
-        "\"type\": \"teset_type\","
-        "\"flags\": \"teset_flags\","
-        "\"action\": \"teset_action\","
-        "\"parameters\": \"teset_parameters\""
-    "}";
-    nlohmann::json noStringDeviceId = "{"
+    std::string noStringDeviceId = "{"
         "\"deviceId\": {},"
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -119,7 +127,7 @@ void DoReadFromJsonSecond(std::shared_ptr<Want> want)
         "\"parameters\": \"teset_parameters\","
         "\"entities\": \"teset_entities\""
     "}";
-    nlohmann::json noStringBundleName = "{"
+    std::string noStringBundleName = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": {},"
         "\"abilityName\": \"teset_abilityName\","
@@ -130,17 +138,15 @@ void DoReadFromJsonSecond(std::shared_ptr<Want> want)
         "\"parameters\": \"teset_parameters\","
         "\"entities\": \"teset_entities\""
     "}";
-    if (want != nullptr) {
-        want->ReadFromJson(noParameters);
-        want->ReadFromJson(noEntities);
-        want->ReadFromJson(noStringDeviceId);
-        want->ReadFromJson(noStringBundleName);
-    }
+    TryParseWantFromString(noParameters);
+    TryParseWantFromString(noEntities);
+    TryParseWantFromString(noStringDeviceId);
+    TryParseWantFromString(noStringBundleName);
 }
 
-void DoReadFromJsonThird(std::shared_ptr<Want> want)
+void DoReadFromJsonThird()
 {
-    nlohmann::json noStringAbilityName = "{"
+    std::string noStringAbilityName = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": {},"
@@ -152,7 +158,7 @@ void DoReadFromJsonThird(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    nlohmann::json noStringUri = "{"
+    std::string noStringUri = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -164,7 +170,7 @@ void DoReadFromJsonThird(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    nlohmann::json noStringType = "{"
+    std::string noStringType = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -176,16 +182,14 @@ void DoReadFromJsonThird(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    if (want != nullptr) {
-        want->ReadFromJson(noStringAbilityName);
-        want->ReadFromJson(noStringUri);
-        want->ReadFromJson(noStringType);
-    }
+    TryParseWantFromString(noStringAbilityName);
+    TryParseWantFromString(noStringUri);
+    TryParseWantFromString(noStringType);
 }
 
-void DoReadFromJsonFourth(std::shared_ptr<Want> want)
+void DoReadFromJsonFourth()
 {
-    nlohmann::json noStringFlags = "{"
+    std::string noStringFlags = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -197,7 +201,7 @@ void DoReadFromJsonFourth(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    nlohmann::json noStringAction = "{"
+    std::string noStringAction = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -209,7 +213,7 @@ void DoReadFromJsonFourth(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    nlohmann::json noStringParameters = "{"
+    std::string noStringParameters = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -221,16 +225,14 @@ void DoReadFromJsonFourth(std::shared_ptr<Want> want)
         "\"entities\": \"teset_entities\""
     "}";
 
-    if (want != nullptr) {
-        want->ReadFromJson(noStringFlags);
-        want->ReadFromJson(noStringAction);
-        want->ReadFromJson(noStringParameters);
-    }
+    TryParseWantFromString(noStringFlags);
+    TryParseWantFromString(noStringAction);
+    TryParseWantFromString(noStringParameters);
 }
 
-void DoReadFromJsonFifth(std::shared_ptr<Want> want)
+void DoReadFromJsonFifth()
 {
-    nlohmann::json nullEntities = "{"
+    std::string nullEntities = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -239,10 +241,10 @@ void DoReadFromJsonFifth(std::shared_ptr<Want> want)
         "\"flags\": \"teset_flags\","
         "\"action\": \"teset_action\","
         "\"parameters\": \"teset_parameters\","
-        "\"entities\": "
+        "\"entities\": null"
     "}";
 
-    nlohmann::json arraryEntitiesItemNotString = "{"
+    std::string arraryEntitiesItemNotString = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -256,7 +258,7 @@ void DoReadFromJsonFifth(std::shared_ptr<Want> want)
         "]"
     "}";
 
-    nlohmann::json stringJson = "{"
+    std::string stringJson = "{"
         "\"deviceId\": \"teset_deviceId\","
         "\"bundleName\": \"teset_bundleName\","
         "\"abilityName\": \"teset_abilityName\","
@@ -270,20 +272,18 @@ void DoReadFromJsonFifth(std::shared_ptr<Want> want)
         "]"
     "}";
 
-    if (want != nullptr) {
-        want->ReadFromJson(nullEntities);
-        want->ReadFromJson(arraryEntitiesItemNotString);
-        want->ReadFromJson(stringJson);
-    }
+    TryParseWantFromString(nullEntities);
+    TryParseWantFromString(arraryEntitiesItemNotString);
+    TryParseWantFromString(stringJson);
 }
 
-void DoReadFromJson(std::shared_ptr<Want> want)
+void DoReadFromJson()
 {
-    DoReadFromJsonFirst(want);
-    DoReadFromJsonSecond(want);
-    DoReadFromJsonThird(want);
-    DoReadFromJsonFourth(want);
-    DoReadFromJsonFifth(want);
+    DoReadFromJsonFirst();
+    DoReadFromJsonSecond();
+    DoReadFromJsonThird();
+    DoReadFromJsonFourth();
+    DoReadFromJsonFifth();
 }
 
 bool DoSomethingInterestingWithMyAPI(const char* data, size_t size)
@@ -316,18 +316,13 @@ bool DoSomethingInterestingWithMyAPI(const char* data, size_t size)
     want->Encode(str);
     int level = static_cast<int>(GetU32Data(data));
     want->DumpInfo(level);
-    nlohmann::json wantJson;
     std::string jsonStr(data, size);
     size_t pos = jsonStr.find("\"jsonStr\"");
     if (pos != std::string::npos) {
         std::string jsonString = jsonStr.substr(pos + 8);
-        wantJson = nlohmann::json::parse(jsonString, nullptr, false);
-        if (!wantJson.is_discarded()) {
-            std::cout << "json parse success:" << wantJson.dump() << std::endl;
-            want->ReadFromJson(wantJson);
-        }
+        TryParseWantFromString(jsonString);
     }
-    DoReadFromJson(want);
+    DoReadFromJson();
     return true;
 }
 }

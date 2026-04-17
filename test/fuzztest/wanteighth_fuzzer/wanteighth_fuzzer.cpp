@@ -55,7 +55,6 @@ bool DoSomethingInterestingWithMyAPI(const char* data, size_t size)
     want->RemoveParam(key);
     want->ClearWant(&wantEqual);
     std::string content(data, size);
-    want->ToJson();
     want->ToString();
     auto wantPtr = want->FromString(content);
     if (wantPtr) {

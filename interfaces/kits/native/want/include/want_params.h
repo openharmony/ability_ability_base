@@ -24,7 +24,6 @@
 
 #include "base_interfaces.h"
 #include "message_parcel.h"
-#include "nlohmann/json.hpp"
 #include "parcel.h"
 #include "refbase.h"
 
@@ -117,8 +116,6 @@ public:
 
     void SetCachedUnsupportedData(const std::vector<UnsupportedData> &cachedUnsuppertedData);
 
-    void FromJson(const nlohmann::json &jsonObject);
-    void ToJson(nlohmann::json &jsonObject) const;
     std::string ToString() const;
     void SetNeedExpansion(bool flag) const;
     bool CheckNeedExpansion() const;
@@ -217,31 +214,6 @@ private:
     bool DoMarshalling(Parcel &parcel, int depth = 1) const;
     bool ReadUnsupportedData(Parcel &parcel, const std::string &key, int type);
 
-    void UnwrapWantParamsNumber(const nlohmann::json &jsonObject, const std::string &key);
-
-    void InnerWrapWantParamsByte(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsChar(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsShort(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsBool(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsString(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsInt32(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsInt64(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsFloat(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsDouble(nlohmann::json &jsObject, const std::string &key) const;
-    void InnerWrapWantParamsWantParams(nlohmann::json &jsObject, const std::string &key) const;
-
-    void InnerWrapWantParamsArrayString(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayBool(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayShort(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayByte(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayInt32(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayInt64(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayFloat(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayWantParams(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayChar(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArrayDouble(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-    void InnerWrapWantParamsArray(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const;
-
     friend class WantParamWrapper;
     // inner use function
     bool NewArrayData(IArray *source, sptr<IArray> &dest);
@@ -256,8 +228,20 @@ private:
     std::vector<UnsupportedData> cachedUnsupportedData_;
 };
 
-void from_json(const nlohmann::json &jsonObject, WantParams &wantParams);
-void to_json(nlohmann::json &jsonObject, const WantParams &wantParams);
+void ParseWantParamsFromJsonString(const std::string &jsonString, WantParams &wantParams);
+
+template<typename JsonType>
+void from_json(const JsonType &jsonObject, WantParams &wantParams)
+{
+    ParseWantParamsFromJsonString(jsonObject.dump(), wantParams);
+}
+
+template<typename JsonType>
+void to_json(JsonType &jsonObject, const WantParams &wantParams)
+{
+    jsonObject = JsonType::parse(wantParams.ToString(), nullptr, false);
+}
+
 }  // namespace AAFwk
 }  // namespace OHOS
 
