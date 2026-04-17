@@ -21,6 +21,8 @@
 #include <regex>
 #include <securec.h>
 
+#include "nlohmann/json.hpp"
+
 #include "base_obj.h"
 #include "bool_wrapper.h"
 #include "zchar_wrapper.h"
@@ -45,6 +47,114 @@ namespace OHOS {
 namespace AAFwk {
 namespace {
 const std::regex NUMBER_REGEX("^[-+]?([0-9]+)([.]([0-9]+))?$");
+
+nlohmann::json BuildWantJson(const Want &want)
+{
+    WantParamWrapper wrapper(want.GetParams());
+    std::string parametersString = wrapper.ToString();
+
+    nlohmann::json entitiesJson;
+    std::vector<std::string> entities = want.GetEntities();
+    for (const auto &entity : entities) {
+        entitiesJson.emplace_back(entity);
+    }
+
+    ElementName element = want.GetElement();
+    nlohmann::json wantJson = nlohmann::json {
+        {"deviceId", element.GetDeviceID()},
+        {"bundleName", element.GetBundleName()},
+        {"abilityName", element.GetAbilityName()},
+        {"uri", want.GetUriString()},
+        {"type", want.GetType()},
+        {"flags", want.GetFlags()},
+        {"action", want.GetAction()},
+        {"parameters", parametersString},
+        {"entities", entitiesJson},
+    };
+
+    return wantJson;
+}
+
+bool ReadWantFromJson(Want &want, nlohmann::json &wantJson)
+{
+    const auto &jsonObjectEnd = wantJson.end();
+    if ((wantJson.find("deviceId") == jsonObjectEnd)
+        || (wantJson.find("bundleName") == jsonObjectEnd)
+        || (wantJson.find("abilityName") == jsonObjectEnd)
+        || (wantJson.find("uri") == jsonObjectEnd)
+        || (wantJson.find("type") == jsonObjectEnd)
+        || (wantJson.find("flags") == jsonObjectEnd)
+        || (wantJson.find("action") == jsonObjectEnd)
+        || (wantJson.find("parameters") == jsonObjectEnd)
+        || (wantJson.find("entities") == jsonObjectEnd)) {
+        ABILITYBASE_LOGE("Incomplete wantJson");
+        return false;
+    }
+
+    if (!wantJson["deviceId"].is_string()) {
+        ABILITYBASE_LOGE("deviceId not string");
+        return false;
+    }
+    if (!wantJson["bundleName"].is_string()) {
+        ABILITYBASE_LOGE("bundleName not string");
+        return false;
+    }
+    if (!wantJson["abilityName"].is_string()) {
+        ABILITYBASE_LOGE("abilityName not string");
+        return false;
+    }
+    want.SetElementName(wantJson["deviceId"], wantJson["bundleName"], wantJson["abilityName"]);
+
+    if (!wantJson["uri"].is_string()) {
+        ABILITYBASE_LOGE("uri not string");
+        return false;
+    }
+    want.SetUri(wantJson["uri"]);
+
+    if (!wantJson["type"].is_string()) {
+        ABILITYBASE_LOGE("type not string");
+        return false;
+    }
+    want.SetType(wantJson["type"]);
+
+    if (!wantJson["flags"].is_number_unsigned()) {
+        ABILITYBASE_LOGE("flags not number");
+        return false;
+    }
+    want.SetFlags(wantJson["flags"]);
+
+    if (!wantJson["action"].is_string()) {
+        ABILITYBASE_LOGE("action not string");
+        return false;
+    }
+    want.SetAction(wantJson["action"]);
+
+    if (!wantJson["parameters"].is_string()) {
+        ABILITYBASE_LOGE("parameters not string");
+        return false;
+    }
+    WantParams parameters = WantParamWrapper::ParseWantParams(wantJson["parameters"]);
+    want.SetParams(parameters);
+    std::string moduleName = want.GetStringParam(Want::PARAM_MODULE_NAME);
+    want.SetModuleName(moduleName);
+
+    if (wantJson.at("entities").is_null()) {
+        ABILITYBASE_LOGD("null entities");
+    } else if (wantJson["entities"].is_array()) {
+        auto size = wantJson["entities"].size();
+        for (size_t i = 0; i < size; i++) {
+            if (!wantJson["entities"][i].is_string()) {
+                ABILITYBASE_LOGE("entities not string");
+                return false;
+            }
+            want.AddEntity(wantJson["entities"][i]);
+        }
+    } else {
+        ABILITYBASE_LOGE("parse entities failed");
+        return false;
+    }
+    return true;
+}
 };  // namespace
 const std::string Want::ACTION_PLAY("action.system.play");
 const std::string Want::ACTION_HOME("action.system.home");
@@ -1886,116 +1996,10 @@ void Want::DumpInfo(int level) const
     parameters_.DumpInfo(level);
 }
 
-nlohmann::json Want::ToJson() const
-{
-    WantParamWrapper wrapper(parameters_);
-    std::string parametersString = wrapper.ToString();
-
-    nlohmann::json entitiesJson;
-    std::vector<std::string> entities = GetEntities();
-    for (auto entity : entities) {
-        entitiesJson.emplace_back(entity);
-    }
-
-    nlohmann::json wantJson = nlohmann::json {
-        {"deviceId", operation_.GetDeviceId()},
-        {"bundleName", operation_.GetBundleName()},
-        {"abilityName", operation_.GetAbilityName()},
-        {"uri", GetUriString()},
-        {"type", GetType()},
-        {"flags", GetFlags()},
-        {"action", GetAction()},
-        {"parameters", parametersString},
-        {"entities", entitiesJson},
-    };
-
-    return wantJson;
-}
-
-bool Want::ReadFromJson(nlohmann::json &wantJson)
-{
-    const auto &jsonObjectEnd = wantJson.end();
-    if ((wantJson.find("deviceId") == jsonObjectEnd)
-        || (wantJson.find("bundleName") == jsonObjectEnd)
-        || (wantJson.find("abilityName") == jsonObjectEnd)
-        || (wantJson.find("uri") == jsonObjectEnd)
-        || (wantJson.find("type") == jsonObjectEnd)
-        || (wantJson.find("flags") == jsonObjectEnd)
-        || (wantJson.find("action") == jsonObjectEnd)
-        || (wantJson.find("parameters") == jsonObjectEnd)
-        || (wantJson.find("entities") == jsonObjectEnd)) {
-        ABILITYBASE_LOGE("Incomplete wantJson");
-        return false;
-    }
-
-    if (!wantJson["deviceId"].is_string()) {
-        ABILITYBASE_LOGE("deviceId not string");
-        return false;
-    }
-    if (!wantJson["bundleName"].is_string()) {
-        ABILITYBASE_LOGE("bundleName not string");
-        return false;
-    }
-    if (!wantJson["abilityName"].is_string()) {
-        ABILITYBASE_LOGE("abilityName not string");
-        return false;
-    }
-    SetElementName(wantJson["deviceId"], wantJson["bundleName"], wantJson["abilityName"]);
-
-    if (!wantJson["uri"].is_string()) {
-        ABILITYBASE_LOGE("uri not string");
-        return false;
-    }
-    SetUri(wantJson["uri"]);
-
-    if (!wantJson["type"].is_string()) {
-        ABILITYBASE_LOGE("type not string");
-        return false;
-    }
-    SetType(wantJson["type"]);
-
-    if (!wantJson["flags"].is_number_unsigned()) {
-        ABILITYBASE_LOGE("flags not number");
-        return false;
-    }
-    SetFlags(wantJson["flags"]);
-
-    if (!wantJson["action"].is_string()) {
-        ABILITYBASE_LOGE("action not string");
-        return false;
-    }
-    SetAction(wantJson["action"]);
-
-    if (!wantJson["parameters"].is_string()) {
-        ABILITYBASE_LOGE("parameters not string");
-        return false;
-    }
-    WantParams parameters = WantParamWrapper::ParseWantParams(wantJson["parameters"]);
-    SetParams(parameters);
-    std::string moduleName = GetStringParam(PARAM_MODULE_NAME);
-    SetModuleName(moduleName);
-
-    if (wantJson.at("entities").is_null()) {
-        ABILITYBASE_LOGD("null entities");
-    } else if (wantJson["entities"].is_array()) {
-        auto size = wantJson["entities"].size();
-        for (size_t i = 0; i < size; i++) {
-            if (!wantJson["entities"][i].is_string()) {
-                ABILITYBASE_LOGE("entities not string");
-                return false;
-            }
-            AddEntity(wantJson["entities"][i]);
-        }
-    } else {
-        ABILITYBASE_LOGE("parse entities failed");
-        return false;
-    }
-    return true;
-}
-
 std::string Want::ToString() const
 {
-    return ToJson().dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
+    nlohmann::json wantJson = BuildWantJson(*this);
+    return wantJson.dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
 }
 
 Want *Want::FromString(std::string &string)
@@ -2012,7 +2016,7 @@ Want *Want::FromString(std::string &string)
     }
 
     Want *want = new (std::nothrow) Want();
-    if (want != nullptr && !want->ReadFromJson(wantJson)) {
+    if (want != nullptr && !ReadWantFromJson(*want, wantJson)) {
         delete want;
         want = nullptr;
     }

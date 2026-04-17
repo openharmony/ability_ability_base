@@ -3902,6 +3902,37 @@ HWTEST_F(WantBaseTest, AaFwk_Want_ToString_0100, Function | MediumTest | Level1)
     CompareWant(want1, want2);
 }
 
+/**
+ * @tc.number: AaFwk_Want_FromString_0200
+ * @tc.name:    FromString with missing required field
+ * @tc.desc: Verify FromString() returns nullptr when required field is missing.
+ */
+HWTEST_F(WantBaseTest, AaFwk_Want_FromString_0200, Function | MediumTest | Level1)
+{
+    std::string jsonWithoutEntities =
+        "{\"deviceId\":\"deviceId\",\"bundleName\":\"bundleName\",\"abilityName\":\"abilityName\","
+        "\"uri\":\"uri\",\"type\":\"type\",\"flags\":1,\"action\":\"action\",\"parameters\":\"{}\"}";
+
+    Want *want = Want::FromString(jsonWithoutEntities);
+    EXPECT_EQ(want, nullptr);
+}
+
+/**
+ * @tc.number: AaFwk_Want_FromString_0300
+ * @tc.name:    FromString with invalid field type
+ * @tc.desc: Verify FromString() returns nullptr when field type is invalid.
+ */
+HWTEST_F(WantBaseTest, AaFwk_Want_FromString_0300, Function | MediumTest | Level1)
+{
+    std::string jsonWithInvalidFlagsType =
+        "{\"deviceId\":\"deviceId\",\"bundleName\":\"bundleName\",\"abilityName\":\"abilityName\","
+        "\"uri\":\"uri\",\"type\":\"type\",\"flags\":\"1\",\"action\":\"action\","
+        "\"parameters\":\"{}\",\"entities\":[]}";
+
+    Want *want = Want::FromString(jsonWithInvalidFlagsType);
+    EXPECT_EQ(want, nullptr);
+}
+
 /*
  * Feature: Array
  * Function: GetLength and GetType
