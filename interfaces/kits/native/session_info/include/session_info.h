@@ -101,6 +101,7 @@ public:
     bool isDensityFollowHost = false;
     std::string specifiedFlag = "";
     bool reuseDelegatorWindow = false;
+    int32_t splitRatioPreference = 0;
     std::shared_ptr<Rosen::WindowCreateParams> windowCreateParams = nullptr;
     int32_t scenarios = 0;
     std::string targetGrantBundleName = "";
