@@ -112,5 +112,13 @@ HWTEST_F(SessionInfoTest, SessionInfo_DoMarshallingSeven_002, TestSize.Level1)
     Parcel parcel;
     ASSERT_TRUE(sessionInfo.DoMarshallingSeven(parcel));
 }
+
+HWTEST_F(SessionInfoTest, SessionInfo_DoMarshallingSix_002, TestSize.Level1)
+{
+    SessionInfo sessionInfo;
+    sessionInfo.splitRatioPreference = 2;
+    Parcel parcel;
+    ASSERT_TRUE(sessionInfo.DoMarshallingSix(parcel));
+}
 } // namespace AAFwk
 } // namespace OHOS
