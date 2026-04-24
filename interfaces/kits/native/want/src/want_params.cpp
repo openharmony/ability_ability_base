@@ -28,6 +28,7 @@
 #include "float_wrapper.h"
 #include "int_wrapper.h"
 #include "long_wrapper.h"
+#include "nlohmann/json.hpp"
 #include "parcel.h"
 #include "remote_object_wrapper.h"
 #include "securec.h"
@@ -39,6 +40,9 @@
 
 namespace OHOS {
 namespace AAFwk {
+void from_json(const nlohmann::json &jsonObject, WantParams &wantParams);
+void to_json(nlohmann::json &jsonObject, const WantParams &wantParams);
+
 namespace {
 sptr<IArray> HandleArrayObjectFromJson(const std::vector<nlohmann::json> &arrayObject)
 {
@@ -1846,7 +1850,8 @@ void WantParams::SetCachedUnsupportedData(const std::vector<UnsupportedData> &ca
     cachedUnsupportedData_ = cachedUnsupportedData;
 }
 
-void WantParams::UnwrapWantParamsNumber(const nlohmann::json &jsonObject, const std::string &key)
+namespace {
+void UnwrapWantParamsNumber(const nlohmann::json &jsonObject, const std::string &key, WantParams &wantParams)
 {
     int32_t natValue32 = 0;
     int64_t natValue64 = 0;
@@ -1854,7 +1859,7 @@ void WantParams::UnwrapWantParamsNumber(const nlohmann::json &jsonObject, const 
 
     if (jsonObject.is_number_float()) {
         natValueDouble = jsonObject.get<double>();
-        SetParam(key, Double::Box(natValueDouble));
+        wantParams.SetParam(key, Double::Box(natValueDouble));
     }
 
     if (!jsonObject.is_number_integer()) {
@@ -1863,14 +1868,14 @@ void WantParams::UnwrapWantParamsNumber(const nlohmann::json &jsonObject, const 
     natValue32 = jsonObject.get<int32_t>();
     natValue64 = jsonObject.get<int64_t>();
     if (natValue32 == natValue64) {
-        SetParam(key, Integer::Box(natValue32));
+        wantParams.SetParam(key, Integer::Box(natValue32));
         return;
     }
     natValueDouble = natValue64 * 1.0;
-    SetParam(key, Double::Box(natValueDouble));
+    wantParams.SetParam(key, Double::Box(natValueDouble));
 }
 
-void WantParams::FromJson(const nlohmann::json &jsonObject)
+void WantParamsFromJson(const nlohmann::json &jsonObject, WantParams &wantParams)
 {
     if (!jsonObject.is_object() && !jsonObject.is_array()) {
         ABILITYBASE_LOGE("not object or array, type name:%{public}s", jsonObject.type_name());
@@ -1884,40 +1889,40 @@ void WantParams::FromJson(const nlohmann::json &jsonObject)
         }
         if (it.value().is_string()) {
             std::string natValue = it.value().get<std::string>();
-            SetParam(it.key(), String::Box(natValue));
+            wantParams.SetParam(it.key(), String::Box(natValue));
             continue;
         }
         if (it.value().is_boolean()) {
             bool natValue = it.value().get<bool>();
-            SetParam(it.key(), Boolean::Box(natValue));
+            wantParams.SetParam(it.key(), Boolean::Box(natValue));
             continue;
         }
         if (it.value().is_number()) {
-            UnwrapWantParamsNumber(it.value(), it.key());
+            UnwrapWantParamsNumber(it.value(), it.key(), wantParams);
             continue;
         }
         if (it.value().is_array()) {
             sptr<IArray> ao = HandleArrayFromJson(it.value());
-            SetParam(it.key(), ao);
+            wantParams.SetParam(it.key(), ao);
             continue;
         }
         if (it.value().is_object()) {
             auto wp = it.value().get<WantParams>();
             sptr<IWantParams> pWantParams = WantParamWrapper::Box(wp);
             if (pWantParams != nullptr) {
-                SetParam(it.key(), pWantParams);
+                wantParams.SetParam(it.key(), pWantParams);
             }
         }
     }
     if (jsonObject.is_array()) {
         // Consistent with napi behavior
-        SetParam("length", Integer::Box(jsonObject.size()));
+        wantParams.SetParam("length", Integer::Box(jsonObject.size()));
     }
 }
 
-void WantParams::InnerWrapWantParamsByte(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsByte(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IByte *bo = IByte::Query(value);
     if (bo == nullptr) {
         return;
@@ -1927,9 +1932,9 @@ void WantParams::InnerWrapWantParamsByte(nlohmann::json &jsObject, const std::st
     jsObject[key] = intValue;
 }
 
-void WantParams::InnerWrapWantParamsChar(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsChar(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IChar *ao = IChar::Query(value);
     if (ao == nullptr) {
         return;
@@ -1939,9 +1944,9 @@ void WantParams::InnerWrapWantParamsChar(nlohmann::json &jsObject, const std::st
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsShort(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsShort(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IShort *ao = IShort::Query(value);
     if (ao == nullptr) {
         return;
@@ -1951,9 +1956,9 @@ void WantParams::InnerWrapWantParamsShort(nlohmann::json &jsObject, const std::s
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsBool(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsBool(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IBoolean *bo = IBoolean::Query(value);
     if (bo == nullptr) {
         return;
@@ -1963,9 +1968,9 @@ void WantParams::InnerWrapWantParamsBool(nlohmann::json &jsObject, const std::st
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsString(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsString(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IString *ao = IString::Query(value);
     if (ao == nullptr) {
         return;
@@ -1975,9 +1980,9 @@ void WantParams::InnerWrapWantParamsString(nlohmann::json &jsObject, const std::
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsInt32(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsInt32(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IInteger *ao = IInteger::Query(value);
     if (ao == nullptr) {
         return;
@@ -1987,9 +1992,9 @@ void WantParams::InnerWrapWantParamsInt32(nlohmann::json &jsObject, const std::s
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsInt64(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsInt64(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     ILong *ao = ILong::Query(value);
     if (ao == nullptr) {
         return;
@@ -1999,9 +2004,9 @@ void WantParams::InnerWrapWantParamsInt64(nlohmann::json &jsObject, const std::s
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsFloat(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsFloat(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IFloat *ao = IFloat::Query(value);
     if (ao == nullptr) {
         return;
@@ -2011,9 +2016,9 @@ void WantParams::InnerWrapWantParamsFloat(nlohmann::json &jsObject, const std::s
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsDouble(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsDouble(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IDouble *ao = IDouble::Query(value);
     if (ao == nullptr) {
         return;
@@ -2023,9 +2028,9 @@ void WantParams::InnerWrapWantParamsDouble(nlohmann::json &jsObject, const std::
     jsObject[key] = natValue;
 }
 
-void WantParams::InnerWrapWantParamsWantParams(nlohmann::json &jsObject, const std::string &key) const
+void InnerWrapWantParamsWantParams(nlohmann::json &jsObject, const std::string &key, const WantParams &wantParams)
 {
-    auto value = GetParam(key);
+    auto value = wantParams.GetParam(key);
     IWantParams *o = IWantParams::Query(value);
     if (o == nullptr) {
         return;
@@ -2035,8 +2040,7 @@ void WantParams::InnerWrapWantParamsWantParams(nlohmann::json &jsObject, const s
     jsObject[key] = wp;
 }
 
-void WantParams::InnerWrapWantParamsArrayString(
-    nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayString(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2056,7 +2060,7 @@ void WantParams::InnerWrapWantParamsArrayString(
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayBool(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayBool(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2076,7 +2080,7 @@ void WantParams::InnerWrapWantParamsArrayBool(nlohmann::json &jsObject, const st
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayShort(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayShort(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2096,7 +2100,7 @@ void WantParams::InnerWrapWantParamsArrayShort(nlohmann::json &jsObject, const s
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayByte(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayByte(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2117,7 +2121,7 @@ void WantParams::InnerWrapWantParamsArrayByte(nlohmann::json &jsObject, const st
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayInt32(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayInt32(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2137,7 +2141,7 @@ void WantParams::InnerWrapWantParamsArrayInt32(nlohmann::json &jsObject, const s
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayInt64(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayInt64(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2157,7 +2161,7 @@ void WantParams::InnerWrapWantParamsArrayInt64(nlohmann::json &jsObject, const s
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayFloat(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayFloat(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2177,8 +2181,7 @@ void WantParams::InnerWrapWantParamsArrayFloat(nlohmann::json &jsObject, const s
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayWantParams(
-    nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao) const
+void InnerWrapWantParamsArrayWantParams(nlohmann::json &jsObject, const std::string &key, sptr<IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2198,8 +2201,7 @@ void WantParams::InnerWrapWantParamsArrayWantParams(
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayChar(
-    nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao) const
+void InnerWrapWantParamsArrayChar(nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2220,8 +2222,7 @@ void WantParams::InnerWrapWantParamsArrayChar(
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArrayDouble(
-    nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao) const
+void InnerWrapWantParamsArrayDouble(nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao)
 {
     long size = 0;
     if (ao->GetLength(size) != ERR_OK) {
@@ -2241,8 +2242,7 @@ void WantParams::InnerWrapWantParamsArrayDouble(
     jsObject[key] = natArray;
 }
 
-void WantParams::InnerWrapWantParamsArray(
-    nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao) const
+void InnerWrapWantParamsArray(nlohmann::json &jsObject, const std::string &key, sptr<AAFwk::IArray> &ao)
 {
     if (Array::IsStringArray(ao)) {
         return InnerWrapWantParamsArrayString(jsObject, key, ao);
@@ -2267,28 +2267,28 @@ void WantParams::InnerWrapWantParamsArray(
     }
 }
 
-void WantParams::ToJson(nlohmann::json &jsObject) const
+void WantParamsToJson(nlohmann::json &jsObject, const WantParams &wantParams)
 {
-    const std::map<std::string, sptr<IInterface>> paramList = GetParams();
+    const std::map<std::string, sptr<IInterface>> paramList = wantParams.GetParams();
     for (auto iter = paramList.begin(); iter != paramList.end(); iter++) {
         if (IString::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsString(jsObject, iter->first);
+            InnerWrapWantParamsString(jsObject, iter->first, wantParams);
         } else if (IBoolean::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsBool(jsObject, iter->first);
+            InnerWrapWantParamsBool(jsObject, iter->first, wantParams);
         } else if (IShort::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsShort(jsObject, iter->first);
+            InnerWrapWantParamsShort(jsObject, iter->first, wantParams);
         } else if (IInteger::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsInt32(jsObject, iter->first);
+            InnerWrapWantParamsInt32(jsObject, iter->first, wantParams);
         } else if (ILong::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsInt64(jsObject, iter->first);
+            InnerWrapWantParamsInt64(jsObject, iter->first, wantParams);
         } else if (IFloat::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsFloat(jsObject, iter->first);
+            InnerWrapWantParamsFloat(jsObject, iter->first, wantParams);
         } else if (IDouble::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsDouble(jsObject, iter->first);
+            InnerWrapWantParamsDouble(jsObject, iter->first, wantParams);
         } else if (IChar::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsChar(jsObject, iter->first);
+            InnerWrapWantParamsChar(jsObject, iter->first, wantParams);
         } else if (IByte::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsByte(jsObject, iter->first);
+            InnerWrapWantParamsByte(jsObject, iter->first, wantParams);
         } else if (IArray::Query(iter->second) != nullptr) {
             IArray *ao = IArray::Query(iter->second);
             if (ao != nullptr) {
@@ -2296,26 +2296,37 @@ void WantParams::ToJson(nlohmann::json &jsObject) const
                 InnerWrapWantParamsArray(jsObject, iter->first, array);
             }
         } else if (IWantParams::Query(iter->second) != nullptr) {
-            InnerWrapWantParamsWantParams(jsObject, iter->first);
+            InnerWrapWantParamsWantParams(jsObject, iter->first, wantParams);
         }
     }
 }
+} // namespace
 
 std::string WantParams::ToString() const
 {
     nlohmann::json jsonObject;
-    ToJson(jsonObject);
+    WantParamsToJson(jsonObject, *this);
     return jsonObject.dump();
+}
+
+void ParseWantParamsFromJsonString(const std::string &jsonString, WantParams &wantParams)
+{
+    auto jsonObject = nlohmann::json::parse(jsonString, nullptr, false);
+    if (jsonObject.is_discarded()) {
+        ABILITYBASE_LOGE("Failed to parse want params json string");
+        return;
+    }
+    WantParamsFromJson(jsonObject, wantParams);
 }
 
 void from_json(const nlohmann::json &jsonObject, WantParams &wantParams)
 {
-    wantParams.FromJson(jsonObject);
+    ParseWantParamsFromJsonString(jsonObject.dump(), wantParams);
 }
 
 void to_json(nlohmann::json &jsonObject, const WantParams &wantParams)
 {
-    wantParams.ToJson(jsonObject);
+    WantParamsToJson(jsonObject, wantParams);
 }
 }  // namespace AAFwk
 }  // namespace OHOS
