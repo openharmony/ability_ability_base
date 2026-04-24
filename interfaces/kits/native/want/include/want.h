@@ -25,7 +25,6 @@
 #include "element_name.h"
 #include "operation.h"
 #include "parcel.h"
-#include "nlohmann/json.hpp"
 
 using Operation = OHOS::AAFwk::Operation;
 
@@ -960,8 +959,6 @@ private:
     static bool CheckAndSetParameters(Want &want, const std::string &key, std::string &prop, const std::string &value);
     Uri GetLowerCaseScheme(const Uri &uri);
     void ToUriStringInner(std::string &uriString) const;
-    nlohmann::json ToJson() const;
-    bool ReadFromJson(nlohmann::json &wantJson);
     void UriStringAppendParam(std::string &uriString) const;
     bool WriteUri(Parcel &parcel) const;
     bool WriteEntities(Parcel &parcel) const;
