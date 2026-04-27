@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -53,6 +53,7 @@ public:
     sptr<IRemoteObject> callerSession = nullptr;
     sptr<IRemoteObject> callerToken = nullptr;
     sptr<IRemoteObject> parentToken = nullptr;
+    sptr<IRemoteObject> requestCallback = nullptr;
     std::string identityToken;
     int32_t persistentId = 0;
     uint32_t hostWindowId = 0;
