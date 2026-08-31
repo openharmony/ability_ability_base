@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <regex>
 #include <securec.h>
 
 #include "nlohmann/json.hpp"
@@ -39,6 +38,7 @@
 #include "remote_object_wrapper.h"
 #include "string_ex.h"
 #include "want_params_wrapper.h"
+#include "parse_want_long.h"
 
 using namespace OHOS::AppExecFwk;
 using OHOS::AppExecFwk::ElementName;
@@ -46,8 +46,6 @@ using OHOS::AppExecFwk::ElementName;
 namespace OHOS {
 namespace AAFwk {
 namespace {
-const std::regex NUMBER_REGEX("^[-+]?([0-9]+)([.]([0-9]+))?$");
-
 nlohmann::json BuildWantJson(const Want &want)
 {
     WantParamWrapper wrapper(want.GetParams());
@@ -1136,9 +1134,12 @@ long Want::GetLongParam(const std::string &key, long defaultValue) const
     } else if (IString::Query(value) != nullptr) {
         // Marshalling
         std::string str = String::Unbox(IString::Query(value));
-        if (std::regex_match(str, NUMBER_REGEX)) {
-            return std::atoll(str.c_str());
+        long parsed = 0;
+        if (ParseWantLong(str, parsed)) {
+            return parsed;
         }
+        ABILITYBASE_LOGE("invalid long param, key=%{public}s, value=%{public}s",
+            key.c_str(), str.c_str());
     }
 
     return defaultValue;
@@ -1152,8 +1153,11 @@ void ArrayAddData(IInterface *object, std::vector<long> &array)
     IString *o = IString::Query(object);
     if (o != nullptr) {
         std::string str = String::Unbox(o);
-        if (std::regex_match(str, NUMBER_REGEX)) {
-            array.push_back(std::atoll(str.c_str()));
+        long parsed = 0;
+        if (ParseWantLong(str, parsed)) {
+            array.push_back(parsed);
+        } else {
+            ABILITYBASE_LOGE("invalid long array element: %{public}s", str.c_str());
         }
     }
 }
