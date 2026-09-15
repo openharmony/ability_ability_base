@@ -30,10 +30,12 @@ namespace AppExecFwk {
 namespace ConfigurationInner {
     constexpr const char* CONNECTION_SYMBOL = "#";
     constexpr const char* EMPTY_STRING = "";
-    constexpr const char* APPLICATION_DIRECTION = "ohos.application.direction";
-    constexpr const char* APPLICATION_DENSITYDPI = "ohos.application.densitydpi";
-    constexpr const char* APPLICATION_DISPLAYID = "ohos.application.displayid";
-    constexpr const char* APPLICATION_FONT = "ohos.application.font";
+    // Aliases to GlobalConfigurationKey for backward compatibility.
+    // The canonical definitions live in global_configuration_key.h (CONFIGURATION_KEY_LIST).
+    constexpr const char* APPLICATION_DIRECTION = OHOS::AAFwk::GlobalConfigurationKey::APPLICATION_DIRECTION;
+    constexpr const char* APPLICATION_DENSITYDPI = OHOS::AAFwk::GlobalConfigurationKey::APPLICATION_DENSITYDPI;
+    constexpr const char* APPLICATION_DISPLAYID = OHOS::AAFwk::GlobalConfigurationKey::APPLICATION_DISPLAYID;
+    constexpr const char* APPLICATION_FONT = OHOS::AAFwk::GlobalConfigurationKey::APPLICATION_FONT;
 
     constexpr const char* COLOR_MODE_LIGHT = "light";
     constexpr const char* COLOR_MODE_DARK = "dark";

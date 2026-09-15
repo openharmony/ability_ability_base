@@ -18,34 +18,54 @@
 
 #include <string>
 
+/*
+ * Single source of truth for all configuration keys.
+ *
+ * To add a new key, append one line to CONFIGURATION_KEY_LIST below.
+ * The list is expanded by consumers via X-Macro to generate both the
+ * constant declarations and the whitelist used by MakeTheKey, so adding
+ * a key no longer requires editing multiple files.
+ *
+ * X(name, value) where:
+ *   name  - the C++ identifier used as the constant name
+ *   value - the string literal key value
+ */
+#define CONFIGURATION_KEY_LIST(X) \
+    X(SYSTEM_LANGUAGE,              "ohos.system.language") \
+    X(IS_PREFERRED_LANGUAGE,        "ohos.system.isPreferredLanguage") \
+    X(SYSTEM_LOCALE,                "ohos.system.locale") \
+    X(SYSTEM_HOUR,                  "ohos.system.hour") \
+    X(SYSTEM_COLORMODE,             "ohos.system.colorMode") \
+    X(INPUT_POINTER_DEVICE,         "input.pointer.device") \
+    X(DEVICE_TYPE,                  "const.build.characteristics") \
+    X(COLORMODE_IS_SET_BY_APP,      "ohos.system.colorMode.isSetByApp") \
+    X(COLORMODE_IS_SET_BY_SA,       "ohos.system.colorMode.isSetBySa") \
+    X(THEME,                        "ohos.application.theme") \
+    X(THEME_ID,                     "ohos.application.themeId") \
+    X(THEME_ICON,                   "ohos.application.themeIcon") \
+    X(THEME_SKIN,                   "ohos.application.themeSkin") \
+    X(SYSTEM_FONT_ID,               "ohos.system.fontId") \
+    X(SYSTEM_FONT_SIZE_SCALE,       "ohos.system.fontSizeScale") \
+    X(SYSTEM_FONT_WEIGHT_SCALE,     "ohos.system.fontWeightScale") \
+    X(SYSTEM_MCC,                   "ohos.system.mcc") \
+    X(SYSTEM_MNC,                   "ohos.system.mnc") \
+    X(APPLICATION_FONT,             "ohos.application.font") \
+    X(APP_FONT_SIZE_SCALE,          "ohos.app.fontSizeScale") \
+    X(APP_FONT_MAX_SCALE,           "ohos.app.fontMaxScale") \
+    X(SYSTEM_SMART_GESTURE_SWITCH,  "ohos.system.smartGesture") \
+    /* ConfigurationInner app/display-level keys (merged for single source) */ \
+    X(APPLICATION_DIRECTION,        "ohos.application.direction") \
+    X(APPLICATION_DENSITYDPI,       "ohos.application.densitydpi") \
+    X(APPLICATION_DISPLAYID,        "ohos.application.displayid")
+
 namespace OHOS {
 namespace AAFwk {
 namespace GlobalConfigurationKey {
     /* For the time being, there is no uniform standard */
-    /* Must be synchronized with the keystore(SystemConfigurationKeyStore)in the configuration */
-    constexpr const char* SYSTEM_LANGUAGE = "ohos.system.language";
-    constexpr const char* IS_PREFERRED_LANGUAGE = "ohos.system.isPreferredLanguage";
-    constexpr const char* SYSTEM_LOCALE = "ohos.system.locale";
-    constexpr const char* SYSTEM_HOUR = "ohos.system.hour";
-    constexpr const char* SYSTEM_COLORMODE = "ohos.system.colorMode";
-    constexpr const char* INPUT_POINTER_DEVICE = "input.pointer.device";
-    constexpr const char* DEVICE_TYPE = "const.build.characteristics";
-    constexpr const char* COLORMODE_IS_SET_BY_APP = "ohos.system.colorMode.isSetByApp";
-    constexpr const char* COLORMODE_IS_SET_BY_SA = "ohos.system.colorMode.isSetBySa";
-    constexpr const char* THEME = "ohos.application.theme";
-    constexpr const char* THEME_ID = "ohos.application.themeId";
-    constexpr const char* THEME_ICON = "ohos.application.themeIcon";
-    constexpr const char* THEME_SKIN = "ohos.application.themeSkin";
-    constexpr const char* SYSTEM_FONT_ID = "ohos.system.fontId";
-    constexpr const char* SYSTEM_FONT_SIZE_SCALE = "ohos.system.fontSizeScale";
-    constexpr const char* SYSTEM_FONT_WEIGHT_SCALE = "ohos.system.fontWeightScale";
-    constexpr const char* SYSTEM_MCC = "ohos.system.mcc";
-    constexpr const char* SYSTEM_MNC = "ohos.system.mnc";
-    constexpr const char* APPLICATION_FONT = "ohos.application.font";
-    constexpr const char* APP_FONT_SIZE_SCALE = "ohos.app.fontSizeScale";
-    constexpr const char* APP_FONT_MAX_SCALE = "ohos.app.fontMaxScale";
-    // Used to notify arkui smart gesture switch
-    constexpr const char* SYSTEM_SMART_GESTURE_SWITCH = "ohos.system.smartGesture";
+
+#define DECLARE_KEY(name, value) constexpr const char* name = value;
+    CONFIGURATION_KEY_LIST(DECLARE_KEY)
+#undef DECLARE_KEY
 
 } // namespace GlobalConfigurationKey
 } // namespace AAFwk
