@@ -28,33 +28,13 @@ constexpr int CYCLE_LIMIT = 1000;
 
 bool IsKeyInWhitelist(const std::string &param)
 {
+    // Whitelist generated from the single source of truth (CONFIGURATION_KEY_LIST).
+    // static const: built once, not on every call.
+#define KEY_VALUE(name, value) value,
     static const std::vector<std::string> SystemConfigurationKeyStore {
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LANGUAGE,
-        OHOS::AAFwk::GlobalConfigurationKey::IS_PREFERRED_LANGUAGE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LOCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_HOUR,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_COLORMODE,
-        OHOS::AAFwk::GlobalConfigurationKey::INPUT_POINTER_DEVICE,
-        OHOS::AAFwk::GlobalConfigurationKey::DEVICE_TYPE,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_ID,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_ICON,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_SKIN,
-        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_SA,
-        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_APP,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_ID,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_SIZE_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_WEIGHT_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MCC,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MNC,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DIRECTION,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DENSITYDPI,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DISPLAYID,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_FONT,
-        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_SIZE_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_MAX_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_SMART_GESTURE_SWITCH,
+        CONFIGURATION_KEY_LIST(KEY_VALUE)
     };
+#undef KEY_VALUE
     return std::find(SystemConfigurationKeyStore.begin(), SystemConfigurationKeyStore.end(), param) !=
         SystemConfigurationKeyStore.end();
 }
