@@ -25,7 +25,40 @@ namespace OHOS {
 namespace AppExecFwk {
 namespace {
 constexpr int CYCLE_LIMIT = 1000;
+
+bool IsKeyInWhitelist(const std::string &param)
+{
+    static const std::vector<std::string> SystemConfigurationKeyStore {
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LANGUAGE,
+        OHOS::AAFwk::GlobalConfigurationKey::IS_PREFERRED_LANGUAGE,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LOCALE,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_HOUR,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_COLORMODE,
+        OHOS::AAFwk::GlobalConfigurationKey::INPUT_POINTER_DEVICE,
+        OHOS::AAFwk::GlobalConfigurationKey::DEVICE_TYPE,
+        OHOS::AAFwk::GlobalConfigurationKey::THEME,
+        OHOS::AAFwk::GlobalConfigurationKey::THEME_ID,
+        OHOS::AAFwk::GlobalConfigurationKey::THEME_ICON,
+        OHOS::AAFwk::GlobalConfigurationKey::THEME_SKIN,
+        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_SA,
+        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_APP,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_ID,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_SIZE_SCALE,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_WEIGHT_SCALE,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MCC,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MNC,
+        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DIRECTION,
+        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DENSITYDPI,
+        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DISPLAYID,
+        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_FONT,
+        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_SIZE_SCALE,
+        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_MAX_SCALE,
+        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_SMART_GESTURE_SWITCH,
+    };
+    return std::find(SystemConfigurationKeyStore.begin(), SystemConfigurationKeyStore.end(), param) !=
+        SystemConfigurationKeyStore.end();
 }
+}  // namespace
 using json = nlohmann::json;
 Configuration::Configuration()
 {}
@@ -59,35 +92,7 @@ bool Configuration::MakeTheKey(std::string &getKey, int id, const std::string &p
         return false;
     }
 
-    const std::vector<std::string> SystemConfigurationKeyStore {
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LANGUAGE,
-        OHOS::AAFwk::GlobalConfigurationKey::IS_PREFERRED_LANGUAGE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_LOCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_HOUR,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_COLORMODE,
-        OHOS::AAFwk::GlobalConfigurationKey::INPUT_POINTER_DEVICE,
-        OHOS::AAFwk::GlobalConfigurationKey::DEVICE_TYPE,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_ID,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_ICON,
-        OHOS::AAFwk::GlobalConfigurationKey::THEME_SKIN,
-        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_SA,
-        OHOS::AAFwk::GlobalConfigurationKey::COLORMODE_IS_SET_BY_APP,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_ID,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_SIZE_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_FONT_WEIGHT_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MCC,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_MNC,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DIRECTION,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DENSITYDPI,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_DISPLAYID,
-        OHOS::AppExecFwk::ConfigurationInner::APPLICATION_FONT,
-        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_SIZE_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::APP_FONT_MAX_SCALE,
-        OHOS::AAFwk::GlobalConfigurationKey::SYSTEM_SMART_GESTURE_SWITCH,
-    };
-    if (std::find(SystemConfigurationKeyStore.begin(), SystemConfigurationKeyStore.end(), param) ==
-        SystemConfigurationKeyStore.end()) {
+    if (!IsKeyInWhitelist(param)) {
         return false;
     }
 
@@ -271,7 +276,18 @@ bool Configuration::ReadFromParcel(Parcel &parcel)
     defaultDisplayId_ = defaultDisplayId;
     configParameter_.clear();
     for (int32_t i = 0; i < configSize; i++) {
-        configParameter_.emplace(keys.at(i), values.at(i));
+        const std::string &key = keys.at(i);
+        auto pos = key.find(ConfigurationInner::CONNECTION_SYMBOL);
+        if (pos == std::string::npos) {
+            ABILITYBASE_LOGE("invalid key format, skip: %{public}s", key.c_str());
+            continue;
+        }
+        std::string param = key.substr(pos + 1);
+        if (!IsKeyInWhitelist(param)) {
+            ABILITYBASE_LOGE("key not in whitelist, skip: %{public}s", key.c_str());
+            continue;
+        }
+        configParameter_.emplace(key, values.at(i));
     }
     return true;
 }
