@@ -274,12 +274,12 @@ bool Configuration::ReadFromParcel(Parcel &parcel)
 
 Configuration *Configuration::Unmarshalling(Parcel &parcel)
 {
-    Configuration *Configuration = new (std::nothrow) OHOS::AppExecFwk::Configuration();
-    if (Configuration && !Configuration->ReadFromParcel(parcel)) {
-        delete Configuration;
-        Configuration = nullptr;
+    Configuration *config = new (std::nothrow) OHOS::AppExecFwk::Configuration();
+    if (config && !config->ReadFromParcel(parcel)) {
+        delete config;
+        config = nullptr;
     }
-    return Configuration;
+    return config;
 }
 
 bool Configuration::Marshalling(Parcel &parcel) const

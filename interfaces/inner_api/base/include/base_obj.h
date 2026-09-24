@@ -29,7 +29,7 @@ INTERFACE(IObject, 8321f710 - a0c0 - 4cbe-bfbc - 5a78f1312b1b)
 
     virtual ClassID GetClassID() = 0;
 
-    virtual int GetHashCode() = 0;
+    virtual int64_t GetHashCode() = 0;
 
     virtual bool Equals(IObject & other) = 0; /* [in] */
 
@@ -75,7 +75,7 @@ public:
 
     ClassID GetClassID() override;
 
-    int GetHashCode() override;
+    int64_t GetHashCode() override;
 
     bool Equals(IObject &other) override; /* [in] */
 

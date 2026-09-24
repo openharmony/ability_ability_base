@@ -16,7 +16,6 @@
 #include "file_path_utils.h"
 
 #include <fstream>
-#include <regex>
 #include <vector>
 
 #include "constants.h"
@@ -445,8 +444,12 @@ bool MakeFilePath(const std::string& codePath, const std::string& modulePath, st
 
 std::string GetLoadPath(const std::string& hapPath)
 {
-    std::regex hapPattern(std::string(Constants::ABS_CODE_PATH) + std::string(Constants::FILE_SEPARATOR));
-    std::string loadPath = std::regex_replace(hapPath, hapPattern, "");
+    std::string prefix = std::string(Constants::ABS_CODE_PATH) + std::string(Constants::FILE_SEPARATOR);
+    std::string loadPath = hapPath;
+    auto pos = loadPath.find(prefix);
+    if (pos != std::string::npos) {
+        loadPath.erase(pos, prefix.size());
+    }
     loadPath = std::string(Constants::LOCAL_CODE_PATH) + std::string(Constants::FILE_SEPARATOR) +
         loadPath.substr(loadPath.find(std::string(Constants::FILE_SEPARATOR)) + 1);
     return loadPath;
@@ -457,8 +460,11 @@ std::string GetRelativePath(const std::string& srcPath)
     if (srcPath.empty() || srcPath[0] != '/') {
         return srcPath;
     }
-    std::regex srcPattern(Constants::LOCAL_CODE_PATH);
-    std::string relativePath = std::regex_replace(srcPath, srcPattern, "");
+    std::string relativePath = srcPath;
+    auto pos = relativePath.find(Constants::LOCAL_CODE_PATH);
+    if (pos != std::string::npos) {
+        relativePath.erase(pos, std::string(Constants::LOCAL_CODE_PATH).size());
+    }
     if (relativePath.find(Constants::FILE_SEPARATOR) == 0) {
         relativePath = relativePath.substr(1);
         relativePath = relativePath.substr(relativePath.find(std::string(Constants::FILE_SEPARATOR)) + 1);

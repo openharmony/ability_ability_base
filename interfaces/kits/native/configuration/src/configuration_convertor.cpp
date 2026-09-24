@@ -19,6 +19,7 @@
 #include "configuration.h"
 namespace OHOS::AppExecFwk {
 constexpr float DPI_BASE = 160.0;
+constexpr int32_t ARRAY_SIZE = 2;
 
 Global::Resource::ColorMode ConvertColorMode(std::string colormode)
 {
@@ -96,7 +97,7 @@ Global::Resource::ScreenDensity ConvertDensity(float density)
     };
 
     float deviceDpi = density * DPI_BASE;
-    if (deviceDpi != deviceDpi || deviceDpi < 0.0) {
+    if (std::isnan(deviceDpi) || deviceDpi < 0.0) {
         return Global::Resource::ScreenDensity::SCREEN_DENSITY_NOT_SET;
     }
     auto resolution = Global::Resource::ScreenDensity::SCREEN_DENSITY_NOT_SET;
@@ -266,6 +267,9 @@ std::string GetDensityStr(float density)
 
 Global::Resource::ColorMode DarkMode_ConvertEts2Native(const int32_t index)
 {
+    if (index <= 0 || index > ARRAY_SIZE) {
+        return Global::Resource::ColorMode::COLOR_MODE_NOT_SET;
+    }
     return static_cast<Global::Resource::ColorMode>(index - 1);
 }
 int32_t DarkMode_ConvertNative2Ets(const Global::Resource::ColorMode nativeValue)
@@ -280,6 +284,9 @@ int32_t DarkMode_ConvertNative2Ets(const Global::Resource::ColorMode nativeValue
 //   }
 Global::Resource::Direction Direction_ConvertEts2Native(const int32_t index)
 {
+    if (index <= 0 || index > ARRAY_SIZE) {
+        return Global::Resource::Direction::DIRECTION_NOT_SET;
+    }
     return static_cast<Global::Resource::Direction>(index - 1);
 }
 int32_t Direction_ConvertNative2Ets(const Global::Resource::Direction nativeValue)

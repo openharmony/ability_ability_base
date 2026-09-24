@@ -124,7 +124,7 @@ bool ZipFile::CheckEndDir(const EndDir &endDir) const
         (endDir.offset >= fileLength_) || (endDir.totalEntriesInThisDisk != endDir.totalEntries) ||
         (endDir.commentLen != 0) ||
         // central dir can't overlap end of central dir
-        ((endDir.offset + endDir.sizeOfCentralDir + lenEndDir) > fileLength_)) {
+        ((static_cast<size_t>(endDir.offset) + endDir.sizeOfCentralDir + lenEndDir) > fileLength_)) {
         ABILITYBASE_LOGW("failed:fileLen: %{public}llu, signature: %{public}u, numDisk: %{public}hu, "
             "startDiskOfCentralDir: %{public}hu, totalEntriesInThisDisk: %{public}hu, totalEntries: %{public}hu, "
             "sizeOfCentralDir: %{public}u, offset: %{public}u, commentLen: %{public}hu",
@@ -194,7 +194,11 @@ bool ZipFile::ParseOneEntry(uint8_t* &entryPtr, const uint8_t* endPtr)
         ABILITYBASE_LOGE("Entry data exceeds remaining buffer");
         return false;
     }
-    size_t fileLength = (directoryEntry.nameSize >= MAX_FILE_NAME) ? (MAX_FILE_NAME - 1) : directoryEntry.nameSize;
+    size_t fileLength = directoryEntry.nameSize;
+    if (fileLength >= MAX_FILE_NAME) {
+        ABILITYBASE_LOGW("directoryEntry.nameSize >= MAX_FILE_NAME");
+        fileLength = MAX_FILE_NAME - 1;
+    }
     std::string fileName(fileLength, 0);
     if (memcpy_s(&(fileName[0]), fileLength, entryPtr, fileLength) != EOK) {
         ABILITYBASE_LOGE("Mem copy file name failed");
@@ -370,21 +374,11 @@ bool ZipFile::IsDirExist(const std::string &dir)
         ABILITYBASE_LOGD("Wrong format");
         return false;
     }
-
-    auto tmpDir = dir;
-    if (tmpDir.front() == FILE_SEPARATOR_CHAR) {
-        tmpDir.erase(tmpDir.begin());
-    }
-    if (tmpDir.back() != FILE_SEPARATOR_CHAR) {
-        tmpDir.push_back(FILE_SEPARATOR_CHAR);
-    }
-    if (entriesMap_.count(tmpDir) > 0) {
-        return true;
-    }
-    tmpDir.pop_back();
-    if (entriesMap_.count(tmpDir) > 0) {
-        ABILITYBASE_LOGD("%{private}s is not dir", dir.c_str());
-        return false;
+    
+    std::string tmpDir;
+    bool isDir = false;
+    if (NormalizeAndLookupDir(dir, tmpDir, isDir)) {
+        return isDir;
     }
 
     if (UseDirCache()) {
@@ -411,20 +405,13 @@ void ZipFile::GetAllFileList(const std::string &srcPath, std::vector<std::string
         ABILITYBASE_LOGW("Wrong format");
         return;
     }
-
-    auto tmpDir = srcPath;
-    if (tmpDir.front() == FILE_SEPARATOR_CHAR) {
-        tmpDir.erase(tmpDir.begin());
-    }
-    if (tmpDir.back() != FILE_SEPARATOR_CHAR) {
-        tmpDir.push_back(FILE_SEPARATOR_CHAR);
-    }
-    if (entriesMap_.count(tmpDir) > 0) {
-        return;
-    }
-    tmpDir.pop_back();
-    if (entriesMap_.count(tmpDir) > 0) {
-        ABILITYBASE_LOGW("file not dir");
+    
+    std::string tmpDir;
+    bool isDir = false;
+    if (NormalizeAndLookupDir(srcPath, tmpDir, isDir)) {
+        if (!isDir) {
+            ABILITYBASE_LOGW("file not dir");
+        }
         return;
     }
 
@@ -447,18 +434,11 @@ void ZipFile::GetChildNames(const std::string &srcPath, std::set<std::string> &f
     }
     auto tmpDir = srcPath;
     if (!IsRootDir(tmpDir)) {
-        if (tmpDir.front() == FILE_SEPARATOR_CHAR) {
-            tmpDir.erase(tmpDir.begin());
-        }
-        if (tmpDir.back() != FILE_SEPARATOR_CHAR) {
-            tmpDir.push_back(FILE_SEPARATOR_CHAR);
-        }
-        if (entriesMap_.count(tmpDir) > 0) {
-            return;
-        }
-        tmpDir.pop_back();
-        if (entriesMap_.count(tmpDir) > 0) {
-            ABILITYBASE_LOGW("file not dir");
+        bool isDir = false;
+        if (NormalizeAndLookupDir(srcPath, tmpDir, isDir)) {
+            if (!isDir) {
+                ABILITYBASE_LOGW("file not dir");
+            }
             return;
         }
     }
@@ -468,6 +448,28 @@ void ZipFile::GetChildNames(const std::string &srcPath, std::set<std::string> &f
     } else {
         GetChildNamesNormal(tmpDir, fileSet);
     }
+}
+
+bool ZipFile::NormalizeAndLookupDir(const std::string &srcPath, std::string &outDir, bool &isDir) const
+{
+    outDir = srcPath;
+    if (outDir.front() == FILE_SEPARATOR_CHAR) {
+        outDir.erase(outDir.begin());
+    }
+    if (outDir.back() != FILE_SEPARATOR_CHAR) {
+        outDir.push_back(FILE_SEPARATOR_CHAR);
+    }
+    if (entriesMap_.count(outDir) > 0) {
+        isDir = true;
+        return true;
+    }
+    outDir.pop_back();
+    if (entriesMap_.count(outDir) > 0) {
+        ABILITYBASE_LOGW("file not dir");
+        isDir = false;
+        return true;
+    }
+    return false;
 }
 
 bool ZipFile::IsDirExistCache(const std::string &dir)
@@ -698,6 +700,7 @@ bool ZipFile::CheckCoherencyLocalHeader(const ZipEntry &zipEntry, uint16_t &extr
         return false;
     }
 
+    // Skip nameSize check when fileName was truncated in ParseOneEntry (nameSize > MAX_FILE_NAME)
     if (localHeader.nameSize != nameSize && nameSize < MAX_FILE_NAME - 1) {
         ABILITYBASE_LOGE("name corrupted");
         return false;

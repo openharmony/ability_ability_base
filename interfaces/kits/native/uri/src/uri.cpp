@@ -378,24 +378,22 @@ string Uri::GetPath()
 
 void Uri::GetPathSegments(std::vector<std::string>& segments)
 {
-    if (uriString_.empty()) {
+    const std::string& path = GetPath();
+    if (path.empty()) {
         return;
-    }
-    if (path_ == NOT_CACHED) {
-        path_ = ParsePath();
     }
 
     size_t previous = 0;
     size_t current;
-    while ((current = path_.find(LEFT_SEPARATOR, previous)) != std::string::npos) {
+    while ((current = path.find(LEFT_SEPARATOR, previous)) != std::string::npos) {
         if (previous < current) {
-            segments.emplace_back(path_.substr(previous, current - previous));
+            segments.emplace_back(path.substr(previous, current - previous));
         }
         previous = current + POS_INC;
     }
     // Add in the final path segment.
-    if (previous < path_.length()) {
-        segments.emplace_back(path_.substr(previous));
+    if (previous < path.length()) {
+        segments.emplace_back(path.substr(previous));
     }
 }
 
@@ -577,6 +575,8 @@ bool Uri::Marshalling(Parcel& parcel) const
 
 Uri* Uri::Unmarshalling(Parcel& parcel)
 {
-    return new Uri(Str16ToStr8(parcel.ReadString16()));
+    std::string uriString = Str16ToStr8(parcel.ReadString16());
+    auto* uri = new (std::nothrow) Uri(uriString);
+    return uri;
 }
 } // namespace OHOS

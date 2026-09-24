@@ -37,7 +37,7 @@ public:
 
     ErrCode GetValue(long &value) override; /* [out] */
 
-    ErrCode GetValue64(int64_t &value); /* [out] */
+    ErrCode GetValue64(int64_t &value) override; /* [out] */
 
     bool Equals(IObject &other) override; /* [in] */
 

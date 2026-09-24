@@ -24,6 +24,7 @@ namespace OHOS {
 namespace AbilityBase {
 namespace {
 long g_pageSize = 0;
+// kernel custom flag
 const int32_t MAP_XPM = 0x40;
 }
 FileMapper::FileMapper()
@@ -70,6 +71,7 @@ bool FileMapper::CreateFileMapper(const std::string &fileName, bool compress,
         ABILITYBASE_LOGE("mmap failed, errno[%{public}d]. fileName: %{public}s, "
             "offset: %{public}zu, pageSize: %{public}ld, mmapFlag: %{public}d",
             errno, fileName.c_str(), offset, g_pageSize, mmapFlag);
+        basePtr_ = nullptr;
         baseLen_ = 0;
         return false;
     }
