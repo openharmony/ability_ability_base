@@ -41,6 +41,18 @@ using OHOS::Parcel;
 
 namespace OHOS {
 namespace AAFwk {
+class TestDeserializationObserver : public WantParamsDeserializationObserver {
+public:
+    explicit TestDeserializationObserver(const std::string &key) : key_(key)
+    {}
+    void OnDeserialized(WantParams &wantParams) override
+    {
+        wantParams.Remove(key_);
+    }
+private:
+    std::string key_;
+};
+
 class WantParamsBaseTest : public testing::Test {
 public:
     WantParamsBaseTest()
@@ -55,6 +67,7 @@ public:
 
     std::shared_ptr<WantParams> wantParamsIn_ = nullptr;
     std::shared_ptr<WantParams> wantParamsOut_ = nullptr;
+    std::shared_ptr<WantParamsDeserializationObserver> testObserver_ = nullptr;
 };
 
 void WantParamsBaseTest::SetUpTestCase(void)
@@ -71,6 +84,52 @@ void WantParamsBaseTest::SetUp(void)
 
 void WantParamsBaseTest::TearDown(void)
 {
+    // Observers are stored in a process-wide static registry; unregister the
+    // test observer so that it never leaks into other test cases.
+    if (testObserver_ != nullptr) {
+        WantParams::UnregisterDeserializationObserver(testObserver_);
+        testObserver_ = nullptr;
+    }
+}
+
+/**
+ * @tc.number: AaFwk_WantParams_DeserializationObserver_0100
+ * @tc.name: RegisterDeserializationObserver
+ * @tc.desc: a registered observer is invoked after ReadFromParcel and can strip a param.
+ */
+HWTEST_F(WantParamsBaseTest, AaFwk_WantParams_DeserializationObserver_0100, Function | MediumTest | Level1)
+{
+    const std::string keyStr = "TestFilterKey";
+    wantParamsIn_->SetParam(keyStr, String::Box("value"));
+    testObserver_ = std::make_shared<TestDeserializationObserver>(keyStr);
+    WantParams::RegisterDeserializationObserver(testObserver_);
+
+    Parcel in;
+    wantParamsIn_->Marshalling(in);
+    std::shared_ptr<WantParams> out(WantParams::Unmarshalling(in));
+    ASSERT_NE(out, nullptr);
+    EXPECT_FALSE(out->HasParam(keyStr));
+}
+
+/**
+ * @tc.number: AaFwk_WantParams_DeserializationObserver_0200
+ * @tc.name: UnregisterDeserializationObserver
+ * @tc.desc: an unregistered observer no longer runs on Unmarshalling.
+ */
+HWTEST_F(WantParamsBaseTest, AaFwk_WantParams_DeserializationObserver_0200, Function | MediumTest | Level1)
+{
+    const std::string keyStr = "TestFilterKey";
+    wantParamsIn_->SetParam(keyStr, String::Box("value"));
+    testObserver_ = std::make_shared<TestDeserializationObserver>(keyStr);
+    WantParams::RegisterDeserializationObserver(testObserver_);
+    WantParams::UnregisterDeserializationObserver(testObserver_);
+    testObserver_ = nullptr;
+
+    Parcel in;
+    wantParamsIn_->Marshalling(in);
+    std::shared_ptr<WantParams> out(WantParams::Unmarshalling(in));
+    ASSERT_NE(out, nullptr);
+    EXPECT_TRUE(out->HasParam(keyStr));
 }
 
 /**
