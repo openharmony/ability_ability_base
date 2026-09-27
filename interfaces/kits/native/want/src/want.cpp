@@ -2316,11 +2316,7 @@ void Want::SetUriFromParameter()
     if (!GetBoolParam(PARAM_SET_URI_WITH_ORIGIN_STRING, false)) {
         return;
     }
-    const std::string &originString = operation_.uri_.GetOriginString();
-    if (originString.empty()) {
-        return;
-    }
-    operation_.uri_.SetUriWithOriginString(originString);
+    operation_.uri_.SetUriWithOriginString();
 }
 
 void Want::CloseAllFd()
