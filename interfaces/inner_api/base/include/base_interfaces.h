@@ -123,6 +123,7 @@ INTERFACE(ILong, d7550828 - 2eaf - 4281 - 8604 - 42a82ab9bcdc)
     }
 
     virtual ErrCode GetValue(long &value) = 0; /* [out] */
+    virtual ErrCode GetValue64(int64_t &value) = 0;
 };
 
 INTERFACE(IFloat, b5428638 - ca53 - 4a27 - 95a0 - 3f24e54a58d5)

@@ -33,14 +33,7 @@ namespace AAFwk {
     extern const InterfaceID g_IID_##id; \
     INTERFACE_INNER id : public IInterface
 
-#define CLASS(id, x)                   \
-    do {                               \
-        extern const ClassID CID_##id; \
-        class id : public Object       \
-    } while (0);
-
 #define INTERFACE_ID(x)
-#define CLASS_ID(x)
 
 #ifndef IINTERFACE_DECL
 #define IINTERFACE_DECL()                                 \

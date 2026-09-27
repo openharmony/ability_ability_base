@@ -37,20 +37,6 @@ ohos_unittest("base_object_test") {
   ]
 }
 
-ohos_unittest("base_test") {
-  module_out_path = base_output_path
-  sources = [ "base/base_test.cpp" ]
-
-  configs = [ ":base_private_config" ]
-
-  deps = [ "${ability_base_path}:base" ]
-
-  external_deps = [
-    "c_utils:utils",
-    "googletest:gtest_main",
-  ]
-}
-
 ohos_unittest("bool_wrapper_test") {
   module_out_path = base_output_path
   sources = [ "base/bool_wrapper_test.cpp" ]
@@ -807,7 +793,6 @@ ohos_unittest("base_configuration_test") {
 group("unittest") {
   testonly = true
   deps = [
-    #":base_test",
     ":array_wrapper_test",
     ":base_configuration_test",
     ":base_object_test",

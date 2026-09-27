@@ -137,7 +137,7 @@ ClassID Object::GetClassID()
     return ClassID::Empty;
 }
 
-int Object::GetHashCode()
+int64_t Object::GetHashCode()
 {
     return reinterpret_cast<HANDLE>(this);
 }
@@ -161,18 +161,13 @@ ErrCode Object::GetWeakReference(sptr<IWeakReference> &weakRef)
 
 std::string Object::ToString()
 {
-    static constexpr int BUFFER_MAX = 1024;
-    std::string str("");
-    char *buf = new (std::nothrow) char[BUFFER_MAX];
-    if (buf != nullptr) {
-        int ret = snprintf_s(buf, BUFFER_MAX, BUFFER_MAX - 1, "[Object %p]", this);
-        if (ret >= 0) {
-            str = buf;
-        }
-        delete[] buf;
-        buf = nullptr;
+    static constexpr int BUFFER_SIZE = 64;
+    char buf[BUFFER_SIZE] = {0};
+    int ret = snprintf_s(buf, sizeof(buf), sizeof(buf) - 1, "[Object %p]", static_cast<void *>(this));
+    if (ret < 0) {
+        return "";
     }
-    return str;
+    return std::string(buf);
 }
 
 bool Object::Equals(IInterface &obj1, IInterface &obj2)

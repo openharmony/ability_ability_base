@@ -307,6 +307,8 @@ private:
     bool IsDirExistNormal(const std::string &dir);
     void GetAllFileListNormal(const std::string &srcPath, std::vector<std::string> &assetList);
     void GetChildNamesNormal(const std::string &srcPath, std::set<std::string> &fileSet);
+    
+    bool NormalizeAndLookupDir(const std::string &srcPath, std::string &outDir, bool &isDir) const;
 
 private:
     std::string pathName_;

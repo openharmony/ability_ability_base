@@ -42,7 +42,11 @@ std::string GetDirectionStr(int32_t height, int32_t width);
 
 std::string GetDirectionStr(int32_t orientation);
 
+std::string GetDirectionStr(Global::Resource::Direction direction);
+
 std::string GetDensityStr(float density);
+
+std::string GetDensityStr(Global::Resource::ScreenDensity density);
 
 //Ets_onvert
 Global::Resource::ColorMode DarkMode_ConvertEts2Native(const int32_t index);

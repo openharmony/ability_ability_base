@@ -23,6 +23,7 @@ namespace OHOS {
 namespace AbilityBase {
 namespace {
 constexpr size_t BIG_FILE_SIZE = 1u << 31;
+constexpr size_t RETRY_NUMBER = 3;
 }
 std::string ZipFileReaderIo::ReadBuffer(size_t startPos, size_t bufferSize)
 {
@@ -51,8 +52,13 @@ bool ZipFileReaderIo::ReadBuffer(uint8_t *dst, size_t startPos, size_t bufferSiz
 
     auto remainSize = bufferSize;
     ssize_t nread = 0;
+    int32_t retry = 0;
     do {
         nread = pread(fd_, dst, remainSize, startPos);
+        if (nread < 0 && errno == EINTR && retry < RETRY_NUMBER) {
+            retry++;
+            continue;
+        }
         if (nread <= 0) {
             break;
         }
