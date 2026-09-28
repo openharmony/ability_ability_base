@@ -18,6 +18,7 @@
 #define WANT_PARAM_USE_LONG
 #endif
 
+#include <algorithm>
 #include <new>
 
 #include "ability_base_log_wrapper.h"
@@ -1798,6 +1799,49 @@ bool WantParams::ReadFromParcelParam(Parcel &parcel, const std::string &key, int
     return true;
 }
 
+std::vector<std::shared_ptr<WantParamsDeserializationObserver>> WantParams::observers_;
+std::mutex WantParams::observerMutex_;
+
+void WantParams::RegisterDeserializationObserver(
+    std::shared_ptr<WantParamsDeserializationObserver> observer)
+{
+    if (observer == nullptr) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(observerMutex_);
+    observers_.push_back(observer);
+    ABILITYBASE_LOGI("register deserialization observer");
+}
+
+void WantParams::UnregisterDeserializationObserver(
+    std::shared_ptr<WantParamsDeserializationObserver> observer)
+{
+    if (observer == nullptr) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(observerMutex_);
+    observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
+    ABILITYBASE_LOGI("unregister deserialization observer");
+}
+
+void WantParams::NotifyDeserialized()
+{
+    // Notify all registered observers. Snapshot first and release the lock
+    // before calling any observer, since an observer may re-enter
+    // Register/Unregister and dead-lock otherwise.
+    std::vector<std::shared_ptr<WantParamsDeserializationObserver>> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(observerMutex_);
+        if (observers_.empty()) {
+            return;
+        }
+        snapshot = observers_;
+    }
+    for (const auto &observer : snapshot) {
+        observer->OnDeserialized(*this);
+    }
+}
+
 bool WantParams::ReadFromParcel(Parcel &parcel, int depth)
 {
     int32_t size;
@@ -1821,6 +1865,13 @@ bool WantParams::ReadFromParcel(Parcel &parcel, int depth)
             ABILITYBASE_LOGE("get i=%{public}d fail", i);
             return false;
         }
+    }
+    // At depth == 1 the outermost WantParams, including all its nested
+    // structures, has been fully read; notify the observers once here. What is
+    // processed, and whether the observer recurses into nested params, is decided
+    // by each observer's own implementation.
+    if (depth == 1) {
+        NotifyDeserialized();
     }
     return true;
 }

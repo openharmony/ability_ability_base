@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <unistd.h>
@@ -57,6 +58,18 @@ public:
 
     UnsupportedData &operator=(const UnsupportedData &other);
     UnsupportedData &operator=(UnsupportedData &&other);
+};
+
+class WantParams;
+
+// Deserialization observer interface. Each SA may implement it to process the
+// outermost WantParams (e.g. strip parameters) after it is fully deserialized.
+class WantParamsDeserializationObserver {
+public:
+    virtual ~WantParamsDeserializationObserver() = default;
+
+    // Called once after the outermost WantParams is fully deserialized.
+    virtual void OnDeserialized(WantParams &wantParams) = 0;
 };
 
 class WantParams final : public Parcelable {
@@ -122,6 +135,27 @@ public:
     void SetNeedExpansion(bool flag) const;
     bool CheckNeedExpansion() const;
     bool PublicReadFromParcel(Parcel &parcel, int depth = 1);
+
+    /**
+     * @brief Register a deserialization observer into the process-wide registry.
+     *
+     * Once registered, the observer's OnDeserialized is called a single time
+     * after the outermost WantParams is fully deserialized within this process.
+     *
+     * @param observer Observer that processes the deserialized WantParams.
+     */
+    static void RegisterDeserializationObserver(
+        std::shared_ptr<WantParamsDeserializationObserver> observer);
+
+    /**
+     * @brief Unregister a deserialization observer.
+     *
+     * The unregistered observer is no longer invoked afterwards.
+     *
+     * @param observer Observer to remove, matched by instance identity.
+     */
+    static void UnregisterDeserializationObserver(
+        std::shared_ptr<WantParamsDeserializationObserver> observer);
 private:
     enum {
         VALUE_TYPE_NULL = -1,
@@ -161,6 +195,9 @@ private:
 
     bool WriteArrayToParcel(Parcel &parcel, IArray *ao, int depth) const;
     bool ReadArrayToParcel(Parcel &parcel, int type, sptr<IArray> &ao, int depth);
+
+    // Notify all registered observers after deserialization completes.
+    void NotifyDeserialized();
     bool ReadFromParcel(Parcel &parcel, int depth = 1);
     bool ReadFromParcelParam(Parcel &parcel, const std::string &key, int type, int depth);
     bool ReadFromParcelString(Parcel &parcel, const std::string &key);
@@ -228,6 +265,10 @@ private:
     std::map<std::string, sptr<IInterface>> params_;
     std::map<std::string, int> fds_;
     std::vector<UnsupportedData> cachedUnsupportedData_;
+
+    // Process-wide registry of deserialization observers, and its mutex.
+    static std::vector<std::shared_ptr<WantParamsDeserializationObserver>> observers_;
+    static std::mutex observerMutex_;
 };
 
 void ParseWantParamsFromJsonString(const std::string &jsonString, WantParams &wantParams);
