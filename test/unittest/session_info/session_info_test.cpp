@@ -206,7 +206,7 @@ HWTEST_F(SessionInfoTest, SessionInfo_DoMarshallingFive_002, TestSize.Level1)
 HWTEST_F(SessionInfoTest, SessionInfo_DoMarshallingSix_003, TestSize.Level1)
 {
     SessionInfo sessionInfo;
-    sessionInfo.isDensityFollowHost = true;
+    sessionInfo.dpiFollowStrategy = 1;
     sessionInfo.specifiedFlag = "specified";
     sessionInfo.reuseDelegatorWindow = true;
     sessionInfo.splitRatioPreference = 3;
@@ -349,7 +349,7 @@ HWTEST_F(SessionInfoTest, SessionInfo_RoundTripPodFieldsTwo_001, TestSize.Level1
     src.requestId = 11;
     src.scbRequestId = 22;
     src.userId = 33;
-    src.isDensityFollowHost = true;
+    src.dpiFollowStrategy = 1;
     src.splitRatioPreference = 4;
     src.scenarios = 5;
     src.isPrelaunch = true;
@@ -372,7 +372,7 @@ HWTEST_F(SessionInfoTest, SessionInfo_RoundTripPodFieldsTwo_001, TestSize.Level1
     EXPECT_EQ(dst->requestId, 11);
     EXPECT_EQ(dst->scbRequestId, 22);
     EXPECT_EQ(dst->userId, 33);
-    EXPECT_EQ(dst->isDensityFollowHost, true);
+    EXPECT_EQ(dst->dpiFollowStrategy, 1);
     EXPECT_EQ(dst->splitRatioPreference, 4);
     EXPECT_EQ(dst->scenarios, 5);
     EXPECT_EQ(dst->isPrelaunch, true);

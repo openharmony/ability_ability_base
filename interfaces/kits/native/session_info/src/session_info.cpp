@@ -301,8 +301,8 @@ bool SessionInfo::DoMarshallingFive(Parcel& parcel) const
 
 bool SessionInfo::DoMarshallingSix(Parcel& parcel) const
 {
-    if (!parcel.WriteBool(isDensityFollowHost)) {
-        ABILITYBASE_LOGE("Write isDensityFollowHost failed");
+    if (!parcel.WriteInt32(dpiFollowStrategy)) {
+        ABILITYBASE_LOGE("Write dpiFollowStrategy failed");
         return false;
     }
 
@@ -464,7 +464,7 @@ SessionInfo* SessionInfo::ReadParcelOne(SessionInfo* info, Parcel& parcel)
     info->requestId = parcel.ReadInt32();
     info->scbRequestId = parcel.ReadInt32();
     info->userId = parcel.ReadInt32();
-    info->isDensityFollowHost = parcel.ReadBool();
+    info->dpiFollowStrategy = parcel.ReadInt32();
     info->specifiedFlag = parcel.ReadString();
     info->reuseDelegatorWindow = parcel.ReadBool();
     info->splitRatioPreference = parcel.ReadInt32();
