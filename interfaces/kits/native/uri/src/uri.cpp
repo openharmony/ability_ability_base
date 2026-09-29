@@ -553,14 +553,12 @@ bool Uri::operator==(const Uri& other) const
     return uriString_ == other.ToString();
 }
 
-void Uri::SetUriWithOriginString(const std::string& originString)
+void Uri::SetUriWithOriginString()
 {
-    uriString_ = originString;
-}
-
-const std::string& Uri::GetOriginString() const
-{
-    return originString_;
+    if (originString_.empty()) {
+        return;
+    }
+    uriString_ = originString_;
 }
 
 bool Uri::Marshalling(Parcel& parcel) const

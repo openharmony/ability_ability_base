@@ -465,7 +465,7 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_0100, Function | MediumTest
     std::shared_ptr<Want> WantIn_ = std::make_shared<Want>();
     ASSERT_NE(WantIn_, nullptr);
     WantIn_->SetUri(nonStdUri);
-    WantIn_->operation_.uri_.SetUriWithOriginString(nonStdUri);
+    WantIn_->operation_.uri_.SetUriWithOriginString();
     WantIn_->SetParam(Want::PARAM_SET_URI_WITH_ORIGIN_STRING, true);
 
     Parcel in;
@@ -507,9 +507,8 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_0300, Function | MediumTest
     const std::string nonStdUri = "in_lake_app://com.example/page";
     Uri uri(nonStdUri);
     EXPECT_TRUE(uri.GetUriStringRef().empty());
-    EXPECT_EQ(uri.GetOriginString(), nonStdUri);
 
-    uri.SetUriWithOriginString(nonStdUri);
+    uri.SetUriWithOriginString();
     EXPECT_EQ(uri.GetUriStringRef(), nonStdUri);
     EXPECT_EQ(uri.GetScheme(), "in_lake_app");
 }
@@ -525,7 +524,7 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_0400, Function | MediumTest
     std::shared_ptr<Want> WantIn_ = std::make_shared<Want>();
     ASSERT_NE(WantIn_, nullptr);
     WantIn_->SetUri(badUri);
-    WantIn_->operation_.uri_.SetUriWithOriginString(badUri);
+    WantIn_->operation_.uri_.SetUriWithOriginString();
     WantIn_->SetParam(Want::PARAM_SET_URI_WITH_ORIGIN_STRING, true);
 
     Parcel in;
@@ -588,7 +587,7 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_0800, Function | MediumTest
     std::shared_ptr<Want> WantIn_ = std::make_shared<Want>();
     ASSERT_NE(WantIn_, nullptr);
     WantIn_->SetUri(nonStdUri);
-    WantIn_->operation_.uri_.SetUriWithOriginString(nonStdUri);
+    WantIn_->operation_.uri_.SetUriWithOriginString();
     WantIn_->SetParam(Want::PARAM_SET_URI_WITH_ORIGIN_STRING, true);
     WantIn_->SetParam(Want::PARAM_STRING_TRANS_FORMAT_UTF8, true);
 
@@ -603,7 +602,7 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_0800, Function | MediumTest
 
 /**
  * @tc.number: AaFwk_Want_Parcelable_OrigUri_1000
- * @tc.name: SetUriWithOriginString rebuilds all cached fields
+ * @tc.name: Restored uri parses all components correctly
  * @tc.desc: after restoring origin string, every getter parses from the raw string.
  */
 HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_1000, Function | MediumTest | Level1)
@@ -611,9 +610,8 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_1000, Function | MediumTest
     const std::string nonStdUri = "in_lake_app://user@host:8080/path?q=1#frag";
     Uri uri(nonStdUri);
     EXPECT_TRUE(uri.GetUriStringRef().empty());
-    EXPECT_EQ(uri.GetOriginString(), nonStdUri);
 
-    uri.SetUriWithOriginString(nonStdUri);
+    uri.SetUriWithOriginString();
     EXPECT_EQ(uri.GetUriStringRef(), nonStdUri);
     EXPECT_EQ(uri.GetScheme(), "in_lake_app");
     EXPECT_EQ(uri.GetAuthority(), "user@host:8080");
@@ -658,7 +656,7 @@ HWTEST_F(WantBaseTest, AaFwk_Want_Parcelable_OrigUri_1200, Function | MediumTest
     std::shared_ptr<Want> WantIn_ = std::make_shared<Want>();
     ASSERT_NE(WantIn_, nullptr);
     WantIn_->SetUri(nonStdUri);
-    WantIn_->operation_.uri_.SetUriWithOriginString(nonStdUri);
+    WantIn_->operation_.uri_.SetUriWithOriginString();
     WantIn_->SetParam(Want::PARAM_SET_URI_WITH_ORIGIN_STRING, true);
 
     Parcel first;
