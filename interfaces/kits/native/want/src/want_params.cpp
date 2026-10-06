@@ -1784,7 +1784,14 @@ bool WantParams::ReadFromParcelFD(Parcel &parcel, const std::string &key)
     }
     int fd = messageParcel->ReadFileDescriptor();
     if (fd < 0) {
-        ABILITYBASE_LOGW("read fd invalid, skip key=%{private}s, fd=%{public}d", key.c_str(), fd);
+        ABILITYBASE_LOGW("read fd invalid, keep marker key=%{private}s, fd=%{public}d", key.c_str(), fd);
+        WantParams wp;
+        wp.SetParam(TYPE_PROPERTY, String::Box(FD));
+        wp.SetParam(VALUE_PROPERTY, Integer::Box(fd));
+        sptr<IWantParams> marker = WantParamWrapper::Box(std::move(wp));
+        if (marker != nullptr) {
+            SetParam(key, marker);
+        }
         return true;
     }
     bool result = SetFd(key, fd, FdOwnership::LEGACY_EXPLICIT) == FdSetStatus::SUCCESS;
