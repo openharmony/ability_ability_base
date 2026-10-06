@@ -864,7 +864,7 @@ bool WantParams::WriteToParcelWantParams(Parcel &parcel, const std::string &key,
     AAFwk::IString *typeP = AAFwk::IString::Query(type);
     if (typeP != nullptr) {
         std::string typeValue = AAFwk::String::Unbox(typeP);
-        if (typeValue == FD && IsStrictFdMarker(value)) {
+        if (typeValue == FD) {
             return WriteToParcelFD(parcel, key, value);
         }
         if (typeValue == REMOTE_OBJECT) {
