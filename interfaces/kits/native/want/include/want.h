@@ -847,6 +847,15 @@ public:
 
     void DupAllFd();
 
+    /**
+     * @description: Upgrades all LEGACY_EXPLICIT fds in the Want parameters to RAII
+     * ownership in batch. Partial failure does not abort the batch; the aggregate
+     * status is returned and failed entries are logged.
+     * @param mode Indicates the traversal mode, CURRENT_LEVEL or RECURSIVE.
+     * @return Returns the FdAdoptStatus of WantParams::AdoptAllLegacyFd.
+     */
+    FdAdoptStatus AdoptAllLegacyFd(FdTraversalMode mode) const;
+
     void SetEntities(const std::vector<std::string> &entities);
     static int32_t Flags_ConvertEts2Native(const int32_t index);
     static int32_t Flags_ConvertNative2Ets(const int32_t nativeValue);

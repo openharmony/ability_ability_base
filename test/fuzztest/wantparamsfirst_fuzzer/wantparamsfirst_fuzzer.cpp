@@ -60,7 +60,7 @@ bool DoSomethingInterestingWithMyAPI(const char* data, size_t size)
     Parcel parcel;
     sptr<IInterface> byteIt = Byte::Box(byteValue);
     int depth = static_cast<int>(GetU32Data(data));
-    wantParams->WriteToParcelWantParams(parcel, byteIt, depth);
+    wantParams->WriteToParcelWantParams(parcel, key, byteIt, depth);
     wantParams->WriteToParcelByte(parcel, byteIt);
     return true;
 }

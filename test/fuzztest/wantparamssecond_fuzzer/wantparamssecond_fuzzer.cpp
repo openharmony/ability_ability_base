@@ -44,7 +44,7 @@ bool DoSomethingInterestingWithMyAPI(const char* data, size_t size)
     IArray* ao = nullptr;
     wantParams->WriteArrayToParcelChar(parcel, ao);
     wantParams->WriteArrayToParcelShort(parcel, ao);
-    wantParams->WriteToParcelFD(parcel, wantOther);
+    wantParams->WriteToParcelFD(parcel, "fd", wantOther);
     wantParams->WriteToParcelRemoteObject(parcel, wantOther);
     float floatValue = 0.0;
     sptr<IInterface> floatIt = Float::Box(floatValue);

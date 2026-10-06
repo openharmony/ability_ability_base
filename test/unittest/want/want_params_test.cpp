@@ -1204,7 +1204,7 @@ HWTEST_F(WantParamsBaseTest, AaFwk_WantParams_WriteToParcelFD_1000, Function | M
     WantParams wantParams;
     Parcel parcel;
     WantParams value;
-    bool result = wantParams.WriteToParcelFD(parcel, value);
+    bool result = wantParams.WriteToParcelFD(parcel, "fd", value);
     EXPECT_EQ(result, false);
 }
 

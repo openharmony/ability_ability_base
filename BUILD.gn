@@ -203,6 +203,7 @@ ohos_shared_library("want") {
     "interfaces/kits/native/want/src/patterns_matcher.cpp",
     "interfaces/kits/native/want/src/skills.cpp",
     "interfaces/kits/native/want/src/want.cpp",
+    "interfaces/kits/native/want/src/want_fd_state.cpp",
     "interfaces/kits/native/want/src/want_params.cpp",
     "interfaces/kits/native/want/src/want_params_wrapper.cpp",
     "interfaces/kits/native/want/src/want_params_wrapper_json.cpp",
