@@ -308,9 +308,13 @@ bool ZipFile::Open()
     if (result) {
         result = ParseAllEntries();
     }
+    if (!result) {
+        ABILITYBASE_LOGE("Parse file(%{public}s) failed", pathName_.c_str());
+        return false;
+    }
     // it means open file success.
     isOpen_ = true;
-    return result;
+    return true;
 }
 
 void ZipFile::Close()
