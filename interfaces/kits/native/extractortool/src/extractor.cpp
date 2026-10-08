@@ -282,26 +282,28 @@ std::shared_ptr<Extractor> ExtractorUtil::GetExtractor(const std::string &hapPat
         ABILITYBASE_LOGD("empty hapPath");
         return nullptr;
     }
+    std::shared_ptr<Extractor> extractor = nullptr;
     {
-        HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, "GetExtractor_find_from_cache");
         std::lock_guard<std::mutex> mapMutex(mapMutex_);
-        auto mapIter = extractorMap_.find(hapPath);
-        if (mapIter != extractorMap_.end()) {
-            ABILITYBASE_LOGD("hapPath: %{private}s", hapPath.c_str());
-            return mapIter->second;
+        {
+            HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, "GetExtractor_find_from_cache");
+            auto mapIter = extractorMap_.find(hapPath);
+            if (mapIter != extractorMap_.end()) {
+                ABILITYBASE_LOGD("hapPath: %{private}s", hapPath.c_str());
+                return mapIter->second;
+            }
         }
-    }
 
-    std::shared_ptr<Extractor> extractor = std::make_shared<Extractor>(hapPath);
-    if (!extractor->Init()) {
-        ABILITYBASE_LOGD("create failed for %{private}s", hapPath.c_str());
-        return nullptr;
-    }
-    if (cache) {
-        HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, "GetExtractor_store");
-        std::lock_guard<std::mutex> mapMutex(mapMutex_);
-        extractorMap_.emplace(hapPath, extractor);
-        ABILITYBASE_LOGD("extractor cache size: %{public}zu", extractorMap_.size());
+        extractor = std::make_shared<Extractor>(hapPath);
+        if (!extractor->Init()) {
+            ABILITYBASE_LOGD("create failed for %{private}s", hapPath.c_str());
+            return nullptr;
+        }
+        if (cache) {
+            HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, "GetExtractor_store");
+            extractorMap_.emplace(hapPath, extractor);
+            ABILITYBASE_LOGD("extractor cache size: %{public}zu", extractorMap_.size());
+        }
     }
     newCreate = true;
     return extractor;
