@@ -29,6 +29,7 @@
 namespace OHOS {
 namespace AbilityBase {
 namespace {
+constexpr size_t MAX_SIZE_OF_CENTRAL_DIR = sizeof(CentralDirEntry) * 1000 * 10000; // sizeof(CentralDirEntry) = 46
 constexpr uint32_t MAX_FILE_NAME = 4096;
 constexpr uint32_t UNZIP_BUFFER_SIZE = 1024;
 constexpr uint32_t UNZIP_BUF_IN_LEN = 160 * UNZIP_BUFFER_SIZE;   // in  buffer length: 160KB
@@ -239,6 +240,11 @@ std::shared_ptr<DirTreeNode> ZipFile::GetDirRoot()
 bool ZipFile::ParseAllEntries()
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
+    // If the archive contains 10 million files, an error will occur
+    if (endDir_.sizeOfCentralDir > MAX_SIZE_OF_CENTRAL_DIR) {
+        ABILITYBASE_LOGE("sizeOfCentralDir error [%{public}d]", endDir_.sizeOfCentralDir);
+        return false;
+    }
     auto centralData = zipFileReader_->ReadBuffer(static_cast<size_t>(centralDirPos_),
         static_cast<size_t>(endDir_.sizeOfCentralDir));
     if (centralData.empty()) {
