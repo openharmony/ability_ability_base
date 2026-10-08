@@ -617,7 +617,6 @@ ohos_unittest("extractor_test") {
 
   deps = [
     "${ability_base_path}:extractortool",
-    "${ability_base_path}:extractresourcemanager",
     "${ability_base_path}:string_utils",
   ]
 

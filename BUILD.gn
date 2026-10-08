@@ -392,36 +392,6 @@ ohos_shared_library("extractortool") {
   part_name = "ability_base"
 }
 
-################################### extractresourcemanager ########################################
-config("ability_extract_resource_manager_config") {
-  include_dirs = [ "interfaces/kits/native/extractortool/include" ]
-}
-
-ohos_shared_library("extractresourcemanager") {
-  branch_protector_ret = "pac_ret"
-  branch_protector_frt = "bti"
-
-  sources = [
-    "interfaces/kits/native/extractortool/src/extract_resource_manager.cpp",
-  ]
-
-  cflags = []
-  if (target_cpu == "arm") {
-    cflags += [ "-DBINDER_IPC_32BIT" ]
-  }
-
-  external_deps = [
-    "resource_management:global_resmgr",
-    "icu:shared_icuuc",
-  ]
-
-  public_configs = [ ":ability_extract_resource_manager_config" ]
-
-  subsystem_name = "ability"
-  innerapi_tags = [ "platformsdk_indirect" ]
-  part_name = "ability_base"
-}
-
 ################################### cwant ########################################
 config("ability_base_ndk_config") {
   include_dirs = [
@@ -479,7 +449,6 @@ group("base_innerkits_target") {
     ":base",
     ":configuration",
     ":extractortool",
-    ":extractresourcemanager",
     ":session_info",
     ":string_utils",
     ":view_data",
