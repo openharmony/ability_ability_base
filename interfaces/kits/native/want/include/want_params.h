@@ -30,10 +30,29 @@
 
 namespace OHOS {
 namespace AAFwk {
+
+struct IWantParams;
+enum class FdOwnership : uint8_t;
+enum class FdCloseStatus : uint8_t;
+enum class FdRemoveStatus : uint8_t;
+enum class FdSetStatus : uint8_t;
+enum class FdGetStatus : uint8_t;
+class WantFdState;
 extern const char* FD;
 extern const char* REMOTE_OBJECT;
 extern const char* TYPE_PROPERTY;
 extern const char* VALUE_PROPERTY;
+
+enum class FdTraversalMode : uint8_t {
+    CURRENT_LEVEL = 0,
+    RECURSIVE = 1,
+};
+
+enum class FdAdoptStatus : uint8_t {
+    SUCCESS,
+    NO_FDS,
+    PARTIAL,
+};
 
 enum ScreenMode : int8_t {
     IDLE_SCREEN_MODE = -1,
@@ -77,8 +96,7 @@ public:
     WantParams() = default;
     WantParams(const WantParams &wantParams);
     WantParams(WantParams &&other) noexcept;
-    ~WantParams()
-    {}
+    ~WantParams();
     WantParams &operator=(const WantParams &other);
     WantParams &operator=(WantParams &&other) noexcept;
     bool operator==(const WantParams &other);
@@ -126,6 +144,26 @@ public:
     void RemoveAllFd();
 
     void DupAllFd();
+
+    /**
+     * @description: Upgrades all LEGACY_EXPLICIT fds to RAII ownership in batch.
+     * CURRENT_LEVEL upgrades only this level; RECURSIVE also processes nested
+     * WantParams and WantParams arrays. Partial failure does not abort the batch:
+     * each failed entry (fd already invalid) is skipped with a warning log, and
+     * the aggregate status is returned. Skipped fds remain LEGACY_EXPLICIT (not
+     * adopted; destructor does not close them — callers should treat them as
+     * never received). Callers that take over fd ownership should call this
+     * to enable RAII lifecycle management.
+     * Not thread safe; callers must serialize concurrent access.
+     * May throw (e.g. bad_alloc) in the RECURSIVE path (Unbox deep copies); not noexcept.
+     * @param mode Indicates the traversal mode, CURRENT_LEVEL or RECURSIVE.
+     * @return Returns SUCCESS if all LEGACY fds are upgraded (or none failed),
+     *         NO_FDS if there is no fd management state at all,
+     *         or PARTIAL if some upgrades failed (see logs for detail).
+     *         Note: owned-only / borrowed-only containers return SUCCESS
+     *         (fd states exist; simply nothing to adopt).
+     */
+    FdAdoptStatus AdoptAllLegacyFd(FdTraversalMode mode) const;
 
     void GetCachedUnsupportedData(std::vector<UnsupportedData> &cachedUnsuppertedData) const;
 
@@ -221,7 +259,10 @@ private:
     bool ReadFromParcelArrayFloat(Parcel &parcel, sptr<IArray> &ao);
     bool ReadFromParcelArrayDouble(Parcel &parcel, sptr<IArray> &ao);
     bool ReadFromParcelArrayWantParams(Parcel &parcel, sptr<IArray> &ao, int depth);
+    bool ReadArrayWantParamsElement(Parcel &parcel, int depth, sptr<WantParams> &outValue);
+    static void RecycleArrayFds(std::vector<sptr<IInterface>> &arrayWantParams);
     bool ReadFromParcelWantParamWrapper(Parcel &parcel, const std::string &key, int type, int depth);
+    bool FinalizeNestedWantParam(const std::string &key, sptr<WantParams> &value);
     bool ReadFromParcelFD(Parcel &parcel, const std::string &key);
     bool ReadFromParcelRemoteObject(Parcel &parcel, const std::string &key);
 
@@ -236,7 +277,7 @@ private:
     bool WriteArrayToParcelDouble(Parcel &parcel, IArray *ao) const;
     bool WriteArrayToParcelWantParams(Parcel &parcel, IArray *ao, int depth) const;
 
-    bool WriteMarshalling(Parcel &parcel, sptr<IInterface> &o, int depth) const;
+    bool WriteMarshalling(Parcel &parcel, const std::string &key, sptr<IInterface> &o, int depth) const;
     bool WriteToParcelString(Parcel &parcel, sptr<IInterface> &o) const;
     bool WriteToParcelBool(Parcel &parcel, sptr<IInterface> &o) const;
     bool WriteToParcelByte(Parcel &parcel, sptr<IInterface> &o) const;
@@ -246,24 +287,35 @@ private:
     bool WriteToParcelLong(Parcel &parcel, sptr<IInterface> &o) const;
     bool WriteToParcelFloat(Parcel &parcel, sptr<IInterface> &o) const;
     bool WriteToParcelDouble(Parcel &parcel, sptr<IInterface> &o) const;
-    bool WriteToParcelWantParams(Parcel &parcel, sptr<IInterface> &o, int depth) const;
-    bool WriteToParcelFD(Parcel &parcel, const WantParams &value) const;
+    bool WriteToParcelWantParams(Parcel &parcel, const std::string &key, sptr<IInterface> &o, int depth) const;
+    bool WriteToParcelFD(Parcel &parcel, const std::string &key, const WantParams &value) const;
     bool WriteToParcelRemoteObject(Parcel &parcel, const WantParams &value) const;
 
     bool DoMarshalling(Parcel &parcel, int depth = 1) const;
     bool ReadUnsupportedData(Parcel &parcel, const std::string &key, int type);
 
     friend class WantParamWrapper;
+    friend class Want;
     // inner use function
     bool NewArrayData(IArray *source, sptr<IArray> &dest);
     bool NewParams(const WantParams &source, WantParams &dest);
     bool NewFds(const WantParams &source, WantParams &dest);
-    bool AddWantParamToInterfaceVector(const sptr<WantParams> &value,
+    bool AddWantParamToInterfaceVector(sptr<WantParams> &value,
         std::vector<sptr<IInterface>> &array) const;
+    FdCloseStatus CloseAllFdWithStatus(FdTraversalMode mode);
+    FdRemoveStatus RemoveAllFdWithStatus();
+    FdSetStatus SetFd(const std::string &key, int fd, FdOwnership ownership);
+    FdGetStatus GetFd(const std::string &key, int &fd) const;
+    bool SetFdMarker(const std::string &key, int fd, FdOwnership ownership);
+    static void CloseAllFdsRecursive(const WantParams &wp, int depth, bool &found, bool &anyFailed);
+    static void AdoptAllLegacyFdInternal(const WantParams &wp, int depth, size_t &totalCount,
+        size_t &legacyCount, size_t &failCount);
+    static void AdoptAllLegacyFdNested(const WantParams &wp, int depth, size_t &totalCount,
+        size_t &legacyCount, size_t &failCount);
 
-    mutable bool needExpansion_ = false; // compatible DMS
+    mutable bool needExpansion_ = false;
     std::map<std::string, sptr<IInterface>> params_;
-    std::map<std::string, int> fds_;
+    std::map<std::string, std::shared_ptr<WantFdState>> fds_;
     std::vector<UnsupportedData> cachedUnsupportedData_;
 
     // Process-wide registry of deserialization observers, and its mutex.

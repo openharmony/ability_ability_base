@@ -2289,6 +2289,7 @@ bool Want::ReadParameters(Parcel &parcel)
                 std::string moduleName = GetStringParam(PARAM_MODULE_NAME);
                 SetModuleName(moduleName);
             } else {
+                parameters_.CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
                 return false;
             }
             // Restore the raw uri when the pass-through flag is set.
@@ -2332,6 +2333,11 @@ void Want::RemoveAllFd()
 void Want::DupAllFd()
 {
     parameters_.DupAllFd();
+}
+
+FdAdoptStatus Want::AdoptAllLegacyFd(FdTraversalMode mode) const
+{
+    return parameters_.AdoptAllLegacyFd(mode);
 }
 
 void Want::SetEntities(const std::vector<std::string> &entities)

@@ -39,6 +39,7 @@ group("fuzztest") {
     "wantparamsfirst_fuzzer:fuzztest",
     "wantparamsfour_fuzzer:fuzztest",
     "wantparamssecond_fuzzer:fuzztest",
+    "wantparamsfd_fuzzer:fuzztest",
     "wantparamsthird_fuzzer:fuzztest",
     "wantparamswrapperjsondepth_fuzzer:fuzztest",
     "wantparamswrapperjsonparse_fuzzer:fuzztest",

@@ -24,6 +24,7 @@
 #include "ability_base_log_wrapper.h"
 #include "array_wrapper.h"
 #include "base_interfaces.h"
+#include "want_fd_state.h"
 #include "base_obj.h"
 #include "bool_wrapper.h"
 #include "byte_wrapper.h"
@@ -38,6 +39,7 @@
 #include "short_wrapper.h"
 #include "string_ex.h"
 #include "string_wrapper.h"
+#include "unique_fd.h"
 #include "want_params_wrapper.h"
 #include "zchar_wrapper.h"
 
@@ -346,6 +348,18 @@ std::string WantParams::GetStringByType(const sptr<IInterface> iIt, int typeId)
 }
 template<typename T1, typename T2, typename T3>
 static void SetNewArray(const AAFwk::InterfaceID &id, AAFwk::IArray *orgIArray, sptr<AAFwk::IArray> &ao);
+WantParams::~WantParams()
+{
+    for (auto &it : fds_) {
+        if (it.second != nullptr) {
+            ABILITYBASE_LOGD("~WantParams release key=%{public}s fd=%{public}d "
+                "ownership=%{public}d use_count=%{public}ld",
+                it.first.c_str(), it.second->GetFdValue(), static_cast<int>(it.second->GetOwnership()),
+                it.second.use_count());
+        }
+    }
+}
+
 /**
  * @description: A constructor used to create an WantParams instance by using the parameters of an existing
  * WantParams object.
@@ -355,6 +369,7 @@ WantParams::WantParams(const WantParams &wantParams)
 {
     params_.clear();
     NewParams(wantParams, *this);
+    NewFds(wantParams, *this);
 }
 
 WantParams::WantParams(WantParams && other) noexcept
@@ -365,9 +380,13 @@ WantParams::WantParams(WantParams && other) noexcept
 // inner use function
 bool WantParams::NewFds(const WantParams &source, WantParams &dest)
 {
-    // Deep copy
     for (auto it : source.fds_) {
-        dest.fds_[it.first] = it.second;
+        if (it.second != nullptr) {
+            dest.fds_[it.first] = it.second;
+            ABILITYBASE_LOGD("NewFds share key=%{public}s fd=%{public}d ownership=%{public}d use_count=%{public}ld",
+                it.first.c_str(), it.second->GetFdValue(), static_cast<int>(it.second->GetOwnership()),
+                it.second.use_count());
+        }
     }
     return true;
 }  // namespace AAFwk
@@ -450,14 +469,17 @@ bool WantParams::NewArrayData(IArray *source, sptr<IArray> &dest)
  */
 WantParams &WantParams::operator=(const WantParams &other)
 {
-    if (this != &other) {
-        params_.clear();
-        fds_.clear();
-        NewParams(other, *this);
-        NewFds(other, *this);
-        cachedUnsupportedData_.clear();
-        cachedUnsupportedData_ = other.cachedUnsupportedData_;
+    if (this == &other) {
+        return *this;
     }
+    WantParams candidate;
+    NewParams(other, candidate);
+    NewFds(other, candidate);
+    candidate.cachedUnsupportedData_ = other.cachedUnsupportedData_;
+
+    params_.swap(candidate.params_);
+    fds_.swap(candidate.fds_);
+    cachedUnsupportedData_.swap(candidate.cachedUnsupportedData_);
     return *this;
 }
 
@@ -642,6 +664,59 @@ bool WantParams::CompareInterface(const sptr<IInterface> iIt1, const sptr<IInter
     return flag;
 }
 
+namespace {
+static constexpr int FD_MARKER_PARAM_COUNT = 2;
+
+bool TryGetFdMarker(IInterface *value, int &fd)
+{
+    if (value == nullptr) {
+        return false;
+    }
+    IWantParams *wp = IWantParams::Query(value);
+    if (wp == nullptr) {
+        return false;
+    }
+    WantParams inner = WantParamWrapper::Unbox(wp);
+    if (inner.Size() != FD_MARKER_PARAM_COUNT) {
+        return false;
+    }
+    IString *typeStr = IString::Query(inner.GetParam(TYPE_PROPERTY));
+    if (typeStr == nullptr || String::Unbox(typeStr) != FD) {
+        return false;
+    }
+    IInteger *intVal = IInteger::Query(inner.GetParam(VALUE_PROPERTY));
+    if (intVal == nullptr) {
+        return false;
+    }
+    fd = Integer::Unbox(intVal);
+    return fd >= 0;
+}
+
+bool IsStrictFdMarker(const WantParams &wp)
+{
+    if (wp.Size() != FD_MARKER_PARAM_COUNT) {
+        return false;
+    }
+    IString *typeStr = IString::Query(wp.GetParam(TYPE_PROPERTY));
+    if (typeStr == nullptr || String::Unbox(typeStr) != FD) {
+        return false;
+    }
+    IInteger *intVal = IInteger::Query(wp.GetParam(VALUE_PROPERTY));
+    if (intVal == nullptr) {
+        return false;
+    }
+    return Integer::Unbox(intVal) >= 0;
+}
+
+struct PendingDup {
+    std::string key;
+    UniqueFd fd;
+    std::shared_ptr<WantFdState> state;
+    sptr<IWantParams> marker;
+};
+
+} // namespace
+
 /**
  * @description: Sets a parameter in key-value pair format.
  * @param key Indicates the key matching the parameter.
@@ -781,7 +856,7 @@ bool WantParams::WriteToParcelBool(Parcel &parcel, sptr<IInterface> &o) const
     return parcel.WriteInt8(value);
 }
 
-bool WantParams::WriteToParcelWantParams(Parcel &parcel, sptr<IInterface> &o, int depth) const
+bool WantParams::WriteToParcelWantParams(Parcel &parcel, const std::string &key, sptr<IInterface> &o, int depth) const
 {
     WantParams value = WantParamWrapper::Unbox(IWantParams::Query(o));
     value.SetNeedExpansion(CheckNeedExpansion());
@@ -790,7 +865,7 @@ bool WantParams::WriteToParcelWantParams(Parcel &parcel, sptr<IInterface> &o, in
     if (typeP != nullptr) {
         std::string typeValue = AAFwk::String::Unbox(typeP);
         if (typeValue == FD) {
-            return WriteToParcelFD(parcel, value);
+            return WriteToParcelFD(parcel, key, value);
         }
         if (typeValue == REMOTE_OBJECT) {
             return WriteToParcelRemoteObject(parcel, value);
@@ -803,17 +878,41 @@ bool WantParams::WriteToParcelWantParams(Parcel &parcel, sptr<IInterface> &o, in
     return value.DoMarshalling(parcel, depth + 1);
 }
 
-bool WantParams::WriteToParcelFD(Parcel &parcel, const WantParams &value) const
+bool WantParams::WriteToParcelFD(Parcel &parcel, const std::string &key, const WantParams &value) const
 {
-    ABILITYBASE_LOGI("called");
-    if (!parcel.WriteInt32(VALUE_TYPE_FD)) {
+    auto managed = fds_.find(key);
+    if (managed != fds_.end() && managed->second != nullptr) {
+        int fd = managed->second->GetFdValue();
+        if (fd >= 0) {
+            if (!WantFdState::IsFdAlive(fd)) {
+                ABILITYBASE_LOGE("managed fd invalid, refuse to write, key=%{private}s, fd=%{public}d",
+                    key.c_str(), fd);
+                return false;
+            }
+            if (!parcel.WriteInt32(VALUE_TYPE_FD)) {
+                return false;
+            }
+            auto messageParcel = static_cast<MessageParcel*>(&parcel);
+            if (messageParcel == nullptr) {
+                return false;
+            }
+            return messageParcel->WriteFileDescriptor(fd);
+        }
+        ABILITYBASE_LOGE("managed fd closed, refuse stale marker, key=%{private}s", key.c_str());
         return false;
     }
 
+    if (!parcel.WriteInt32(VALUE_TYPE_FD)) {
+        return false;
+    }
     auto fdWrap = value.GetParam(VALUE_PROPERTY);
     AAFwk::IInteger *fdIWrap = AAFwk::IInteger::Query(fdWrap);
     if (fdIWrap != nullptr) {
         int fd = AAFwk::Integer::Unbox(fdIWrap);
+        if (!WantFdState::IsFdAlive(fd)) {
+            ABILITYBASE_LOGE("invalid fd in legacy marker, fd=%{public}d", fd);
+            return false;
+        }
         auto messageParcel = static_cast<MessageParcel*>(&parcel);
         if (messageParcel == nullptr) {
             return false;
@@ -911,7 +1010,7 @@ bool WantParams::WriteToParcelDouble(Parcel &parcel, sptr<IInterface> &o) const
     return parcel.WriteDouble(value);
 }
 
-bool WantParams::WriteMarshalling(Parcel &parcel, sptr<IInterface> &o, int depth) const
+bool WantParams::WriteMarshalling(Parcel &parcel, const std::string &key, sptr<IInterface> &o, int depth) const
 {
     if (IString::Query(o) != nullptr) {
         return WriteToParcelString(parcel, o);
@@ -932,7 +1031,7 @@ bool WantParams::WriteMarshalling(Parcel &parcel, sptr<IInterface> &o, int depth
     } else if (IDouble::Query(o) != nullptr) {
         return WriteToParcelDouble(parcel, o);
     } else if (IWantParams::Query(o) != nullptr) {
-        return WriteToParcelWantParams(parcel, o, depth);
+        return WriteToParcelWantParams(parcel, key, o, depth);
     } else {
         IArray *ao = IArray::Query(o);
         if (ao != nullptr) {
@@ -975,7 +1074,7 @@ bool WantParams::DoMarshalling(Parcel &parcel, int depth) const
         if (!parcel.WriteString16(Str8ToStr16(key))) {
             return false;
         }
-        if (!WriteMarshalling(parcel, o, depth)) {
+        if (!WriteMarshalling(parcel, key, o, depth)) {
             return false;
         }
         iter++;
@@ -1346,7 +1445,7 @@ bool WantParams::ReadFromParcelArrayInt(Parcel &parcel, sptr<IArray> &ao)
  * @description: Helper function to add a WantParams object to an IInterface vector.
  * Encapsulates the common logic of checking non-null and boxing.
  */
-bool WantParams::AddWantParamToInterfaceVector(const sptr<WantParams> &value,
+bool WantParams::AddWantParamToInterfaceVector(sptr<WantParams> &value,
     std::vector<sptr<IInterface>> &array) const
 {
     if (value == nullptr) {
@@ -1399,6 +1498,47 @@ bool WantParams::ReadFromParcelArrayDouble(Parcel &parcel, sptr<IArray> &ao)
     return SetArray<double, Double>(g_IID_IDouble, value, ao);
 }
 
+void WantParams::RecycleArrayFds(std::vector<sptr<IInterface>> &arrayWantParams)
+{
+    for (auto &elem : arrayWantParams) {
+        IWantParams *wp = IWantParams::Query(elem);
+        if (wp != nullptr) {
+            WantParamWrapper::Unbox(wp).CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+        }
+    }
+}
+
+bool WantParams::ReadArrayWantParamsElement(Parcel &parcel, int depth, sptr<WantParams> &outValue)
+{
+    if (CheckNeedExpansion()) {
+        WantParams *wantParams = new (std::nothrow) WantParams();
+        if (wantParams == nullptr) {
+            return false;
+        }
+        wantParams->SetNeedExpansion(CheckNeedExpansion());
+        if (!wantParams->PublicReadFromParcel(parcel, depth)) {
+            wantParams->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+            delete wantParams;
+            return false;
+        }
+        if (IsStrictFdMarker(*wantParams)) {
+            ABILITYBASE_LOGE("reject injected fd marker via nested WantParams array");
+            wantParams->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+            delete wantParams;
+            return false;
+        }
+        outValue = sptr<WantParams>(wantParams);
+    } else {
+        outValue = sptr<WantParams>(Unmarshalling(parcel, depth));
+        if (outValue != nullptr && IsStrictFdMarker(*outValue)) {
+            ABILITYBASE_LOGE("reject injected fd marker via nested WantParams array");
+            outValue->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool WantParams::ReadFromParcelArrayWantParams(Parcel &parcel, sptr<IArray> &ao, int depth)
 {
     int32_t size = parcel.ReadInt32();
@@ -1408,35 +1548,40 @@ bool WantParams::ReadFromParcelArrayWantParams(Parcel &parcel, sptr<IArray> &ao,
         return false;
     }
     std::vector<sptr<IInterface>> arrayWantParams;
-    for (int32_t i = 0; i < size; ++i) {
+    bool success = true;
+    for (int32_t i = 0; i < size && success; ++i) {
         sptr<WantParams> value;
-        if (CheckNeedExpansion()) {
-            WantParams *wantParams = new (std::nothrow) WantParams();
-            if (wantParams == nullptr) {
-                return false;
-            }
-            wantParams->SetNeedExpansion(CheckNeedExpansion());
-            if (!wantParams->PublicReadFromParcel(parcel, depth + 1)) {
-                delete wantParams;
-                return false;
-            }
-            value = sptr<WantParams>(wantParams);
-        } else {
-            value = sptr<WantParams>(Unmarshalling(parcel, depth + 1));
+        if (!ReadArrayWantParamsElement(parcel, depth + 1, value)) {
+            success = false;
+            break;
         }
         if (!AddWantParamToInterfaceVector(value, arrayWantParams)) {
+            if (value != nullptr) {
+                ABILITYBASE_LOGE("Box array element failed");
+                value->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+            }
+            success = false;
+            break;
+        }
+    }
+    if (!success) {
+        RecycleArrayFds(arrayWantParams);
+        return false;
+    }
+    ao = new (std::nothrow) AAFwk::Array(arrayWantParams.size(), AAFwk::g_IID_IWantParams);
+    if (ao == nullptr) {
+        RecycleArrayFds(arrayWantParams);
+        return false;
+    }
+    for (size_t i = 0; i < arrayWantParams.size(); i++) {
+        if (ao->Set(i, arrayWantParams[i]) != ERR_OK) {
+            ABILITYBASE_LOGE("array Set failed, index=%{public}zu", i);
+            RecycleArrayFds(arrayWantParams);
+            ao = nullptr;
             return false;
         }
     }
-
-    ao = new (std::nothrow) AAFwk::Array(arrayWantParams.size(), AAFwk::g_IID_IWantParams);
-    if (ao != nullptr) {
-        for (size_t i = 0; i < arrayWantParams.size(); i++) {
-            ao->Set(i, arrayWantParams[i]);
-        }
-        return true;
-    }
-    return false;
+    return true;
 }
 
 bool WantParams::ReadArrayToParcel(Parcel &parcel, int type, sptr<IArray> &ao, int depth)
@@ -1573,17 +1718,36 @@ bool WantParams::ReadFromParcelInt(Parcel &parcel, const std::string &key)
     }
 }
 
+bool WantParams::FinalizeNestedWantParam(const std::string &key, sptr<WantParams> &value)
+{
+    if (value == nullptr) {
+        ABILITYBASE_LOGE("nested WantParams unmarshal failed, key=%{private}s", key.c_str());
+        return false;
+    }
+    if (IsStrictFdMarker(*value)) {
+        ABILITYBASE_LOGE("reject injected fd marker via nested WantParams, key=%{private}s", key.c_str());
+        value->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+        return false;
+    }
+    sptr<IInterface> intf = WantParamWrapper::Box(*value);
+    if (intf) {
+        SetParam(key, intf);
+        return true;
+    }
+    ABILITYBASE_LOGE("Box nested WantParams failed, key=%{private}s", key.c_str());
+    value->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
+    return false;
+}
+
 bool WantParams::ReadFromParcelWantParamWrapper(Parcel &parcel, const std::string &key, int type, int depth)
 {
     if (type == VALUE_TYPE_FD) {
         return ReadFromParcelFD(parcel, key);
     }
-
     if (type == VALUE_TYPE_INVALID_FD) {
         ABILITYBASE_LOGE("fd invalid");
         return true;
     }
-
     if (type == VALUE_TYPE_REMOTE_OBJECT) {
         return ReadFromParcelRemoteObject(parcel, key);
     }
@@ -1595,26 +1759,20 @@ bool WantParams::ReadFromParcelWantParamWrapper(Parcel &parcel, const std::strin
         }
         wantParams->SetNeedExpansion(CheckNeedExpansion());
         if (!wantParams->PublicReadFromParcel(parcel, depth + 1)) {
+            wantParams->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
             delete wantParams;
             return false;
         }
         sptr<WantParams> value(wantParams);
-        if (value != nullptr) {
-            sptr<IInterface> intf = WantParamWrapper::Box(*value);
-            if (intf) {
-                SetParam(key, intf);
-            }
+        if (!FinalizeNestedWantParam(key, value)) {
+            return false;
         }
     } else {
         sptr<WantParams> value(Unmarshalling(parcel, depth + 1));
-        if (value != nullptr) {
-            sptr<IInterface> intf = WantParamWrapper::Box(*value);
-            if (intf) {
-                SetParam(key, intf);
-            }
+        if (!FinalizeNestedWantParam(key, value)) {
+            return false;
         }
     }
-
     return true;
 }
 
@@ -1624,14 +1782,28 @@ bool WantParams::ReadFromParcelFD(Parcel &parcel, const std::string &key)
     if (messageParcel == nullptr) {
         return false;
     }
-    auto fd = messageParcel->ReadFileDescriptor();
-    ABILITYBASE_LOGI("fd:%{public}d", fd);
-    WantParams wp;
-    wp.SetParam(TYPE_PROPERTY, String::Box(FD));
-    wp.SetParam(VALUE_PROPERTY, Integer::Box(fd));
-    sptr<AAFwk::IWantParams> pWantParams = AAFwk::WantParamWrapper::Box(wp);
-    SetParam(key, pWantParams);
-    fds_[key] = fd;
+    int fd = messageParcel->ReadFileDescriptor();
+    if (fd < 0) {
+        ABILITYBASE_LOGW("read fd invalid, keep marker key=%{private}s, fd=%{public}d", key.c_str(), fd);
+        WantParams wp;
+        wp.SetParam(TYPE_PROPERTY, String::Box(FD));
+        wp.SetParam(VALUE_PROPERTY, Integer::Box(fd));
+        sptr<IWantParams> marker = WantParamWrapper::Box(std::move(wp));
+        if (marker != nullptr) {
+            SetParam(key, marker);
+        }
+        return true;
+    }
+    bool result = SetFd(key, fd, FdOwnership::LEGACY_EXPLICIT) == FdSetStatus::SUCCESS;
+    if (!result) {
+        ABILITYBASE_LOGE("SetFd failed after read fd, key=%{private}s, fd=%{public}d", key.c_str(), fd);
+        return false;
+    }
+    auto it = fds_.find(key);
+    if (it != fds_.end() && it->second != nullptr) {
+        ABILITYBASE_LOGD("ReadFromParcelFD key=%{private}s fd=%{public}d LEGACY_EXPLICIT use_count=%{public}ld",
+            key.c_str(), fd, it->second.use_count());
+    }
     return true;
 }
 
@@ -1897,6 +2069,7 @@ WantParams *WantParams::Unmarshalling(Parcel &parcel, int depth)
         return nullptr;
     }
     if (!wantParams->ReadFromParcel(parcel, depth)) {
+        wantParams->CloseAllFdWithStatus(FdTraversalMode::RECURSIVE);
         delete wantParams;
         wantParams = nullptr;
     }
@@ -1916,43 +2089,326 @@ void WantParams::DumpInfo(int level) const
     }
 }
 
-void WantParams::CloseAllFd()
+void WantParams::CloseAllFdsRecursive(const WantParams &wp, int depth, bool &found, bool &anyFailed)
 {
-    for (auto it : fds_) {
-        if (it.second > 0) {
-            ABILITYBASE_LOGI("fd:%{public}d", it.second);
-            close(it.second);
+    if (depth >= MAX_RECURSION_DEPTH) {
+        ABILITYBASE_LOGE("CloseAllFdsRecursive depth exceeded, stop recursing, depth=%{public}d", depth);
+        return;
+    }
+    for (const auto &entry : wp.fds_) {
+        if (entry.second == nullptr) {
+            continue;
         }
-        params_.erase(it.first);
+        found = true;
+        anyFailed |= (entry.second->CloseOnce() == FdCloseResult::FAILED);
     }
-    fds_.clear();
-}
-
-void WantParams::RemoveAllFd()
-{
-    for (auto it : fds_) {
-        params_.erase(it.first);
-    }
-    fds_.clear();
-}
-
-void WantParams::DupAllFd()
-{
-    for (auto it : fds_) {
-        if (it.second > 0) {
-            int dupFd = dup(it.second);
-            if (dupFd > 0) {
-                params_.erase(it.first);
-                WantParams wp;
-                wp.SetParam(TYPE_PROPERTY, String::Box(FD));
-                wp.SetParam(VALUE_PROPERTY, Integer::Box(dupFd));
-                sptr<AAFwk::IWantParams> pWantParams = AAFwk::WantParamWrapper::Box(wp);
-                SetParam(it.first, pWantParams);
-                fds_[it.first] = dupFd;
+    for (const auto &entry : wp.params_) {
+        IWantParams *nested = IWantParams::Query(entry.second);
+        if (nested != nullptr) {
+            CloseAllFdsRecursive(WantParamWrapper::Unbox(nested), depth + 1, found, anyFailed);
+            continue;
+        }
+        IArray *arr = IArray::Query(entry.second);
+        if (arr == nullptr || !Array::IsWantParamsArray(arr)) {
+            continue;
+        }
+        long arrSize = 0;
+        arr->GetLength(arrSize);
+        for (long i = 0; i < arrSize; ++i) {
+            sptr<IInterface> object;
+            arr->Get(i, object);
+            if (object == nullptr) {
+                continue;
+            }
+            IWantParams *value = IWantParams::Query(object);
+            if (value != nullptr) {
+                CloseAllFdsRecursive(WantParamWrapper::Unbox(value), depth + 1, found, anyFailed);
             }
         }
     }
 }
+
+bool WantParams::SetFdMarker(const std::string &key, int fd, FdOwnership ownership)
+{
+    std::shared_ptr<WantFdState> state;
+    switch (ownership) {
+        case FdOwnership::TAKE_TAGGED:
+            state = WantFdState::AdoptTagged(fd);
+            break;
+        case FdOwnership::LEGACY_EXPLICIT:
+            state = WantFdState::LegacyExplicit(fd);
+            break;
+        default:
+            return false;
+    }
+    if (state == nullptr) {
+        return false;
+    }
+    WantParams wp;
+    wp.SetParam(TYPE_PROPERTY, String::Box(FD));
+    wp.SetParam(VALUE_PROPERTY, Integer::Box(fd));
+    sptr<IWantParams> marker = WantParamWrapper::Box(wp);
+    if (marker == nullptr) {
+        return false;
+    }
+
+    std::shared_ptr<WantFdState> oldState;
+    auto oldIt = fds_.find(key);
+    if (oldIt != fds_.end()) {
+        oldState = oldIt->second;
+    }
+    fds_[key] = state;
+    params_[key] = marker;
+
+    if (oldState != nullptr) {
+        oldState->CloseOnce();
+    }
+    return true;
+}
+
+FdSetStatus WantParams::SetFd(const std::string &key, int fd, FdOwnership ownership)
+{
+    if (fd < 0) {
+        return FdSetStatus::INVALID_FD;
+    }
+    UniqueFd guard(fd);
+    if (!SetFdMarker(key, fd, ownership)) {
+        return FdSetStatus::INTERNAL_ERROR;
+    }
+    (void)guard.Release();
+    return FdSetStatus::SUCCESS;
+}
+
+void WantParams::AdoptAllLegacyFdInternal(const WantParams &wp, int depth, size_t &totalCount,
+    size_t &legacyCount, size_t &failCount)
+{
+    if (depth >= MAX_RECURSION_DEPTH) {
+        ABILITYBASE_LOGE("AdoptAllLegacyFd depth exceeded, skip nested fds, depth=%{public}d", depth);
+        ++failCount;
+        return;
+    }
+    for (const auto &entry : wp.fds_) {
+        if (entry.second == nullptr) {
+            continue;
+        }
+        ++totalCount;
+        if (entry.second->GetOwnership() != FdOwnership::LEGACY_EXPLICIT) {
+            continue;
+        }
+        ++legacyCount;
+        if (!entry.second->UpgradeToOwned()) {
+            ++failCount;
+            ABILITYBASE_LOGW("AdoptAllLegacyFd skip invalid fd, key=%{private}s, fd=%{public}d",
+                entry.first.c_str(), entry.second->GetFdValue());
+            continue;
+        }
+        ABILITYBASE_LOGD("Adopt upgrade key=%{private}s fd=%{public}d use_count=%{public}ld",
+            entry.first.c_str(), entry.second->GetFdValue(), entry.second.use_count());
+    }
+    AdoptAllLegacyFdNested(wp, depth + 1, totalCount, legacyCount, failCount);
+}
+
+void WantParams::AdoptAllLegacyFdNested(const WantParams &wp, int depth, size_t &totalCount,
+    size_t &legacyCount, size_t &failCount)
+{
+    for (const auto &entry : wp.params_) {
+        IWantParams *nested = IWantParams::Query(entry.second);
+        if (nested != nullptr) {
+            WantParams inner = WantParamWrapper::Unbox(nested);
+            AdoptAllLegacyFdInternal(inner, depth, totalCount, legacyCount, failCount);
+            continue;
+        }
+        IArray *arr = IArray::Query(entry.second);
+        if (arr == nullptr || !Array::IsWantParamsArray(arr)) {
+            continue;
+        }
+        long arrSize = 0;
+        arr->GetLength(arrSize);
+        for (long i = 0; i < arrSize; ++i) {
+            sptr<IInterface> object;
+            arr->Get(i, object);
+            if (object == nullptr) {
+                continue;
+            }
+            IWantParams *value = IWantParams::Query(object);
+            if (value == nullptr) {
+                continue;
+            }
+            WantParams inner = WantParamWrapper::Unbox(value);
+            AdoptAllLegacyFdInternal(inner, depth, totalCount, legacyCount, failCount);
+        }
+    }
+}
+
+inline FdAdoptStatus AggregateAdoptStatus(size_t totalStateCount, size_t legacyCount, size_t failCount)
+{
+    (void)legacyCount;
+    if (failCount > 0) {
+        return FdAdoptStatus::PARTIAL;
+    }
+    if (totalStateCount == 0) {
+        return FdAdoptStatus::NO_FDS;
+    }
+    return FdAdoptStatus::SUCCESS;
+}
+
+FdAdoptStatus WantParams::AdoptAllLegacyFd(FdTraversalMode mode) const
+{
+    if (mode == FdTraversalMode::CURRENT_LEVEL) {
+        if (fds_.empty()) {
+            return FdAdoptStatus::NO_FDS;
+        }
+        size_t totalCount = 0;
+        size_t legacyCount = 0;
+        size_t failCount = 0;
+        for (const auto &entry : fds_) {
+            if (entry.second == nullptr) {
+                continue;
+            }
+            ++totalCount;
+            if (entry.second->GetOwnership() != FdOwnership::LEGACY_EXPLICIT) {
+                continue;
+            }
+            ++legacyCount;
+            if (!entry.second->UpgradeToOwned()) {
+                ++failCount;
+                ABILITYBASE_LOGW("AdoptAllLegacyFd skip invalid fd, key=%{private}s, fd=%{public}d",
+                    entry.first.c_str(), entry.second->GetFdValue());
+            }
+        }
+        return AggregateAdoptStatus(totalCount, legacyCount, failCount);
+    }
+    size_t totalCount = 0;
+    size_t legacyCount = 0;
+    size_t failCount = 0;
+    AdoptAllLegacyFdInternal(*this, 1, totalCount, legacyCount, failCount);
+    return AggregateAdoptStatus(totalCount, legacyCount, failCount);
+}
+
+FdGetStatus WantParams::GetFd(const std::string &key, int &fd) const
+{
+    auto it = fds_.find(key);
+    if (it != fds_.end()) {
+        if (it->second == nullptr) {
+            return FdGetStatus::NOT_FOUND;
+        }
+        fd = it->second->GetFdValue();
+        if (fd < 0) {
+            return FdGetStatus::CLOSED;
+        }
+        if (!WantFdState::IsFdAlive(fd)) {
+            return FdGetStatus::CLOSED;
+        }
+        return FdGetStatus::SUCCESS;
+    }
+    auto paramIt = params_.find(key);
+    if (paramIt == params_.end()) {
+        return FdGetStatus::NOT_FOUND;
+    }
+    if (!TryGetFdMarker(paramIt->second.GetRefPtr(), fd)) {
+        return FdGetStatus::INVALID_MARKER;
+    }
+    if (!WantFdState::IsFdAlive(fd)) {
+        return FdGetStatus::CLOSED;
+    }
+    return FdGetStatus::SUCCESS;
+}
+
+void WantParams::CloseAllFd()
+{
+    (void)CloseAllFdWithStatus(FdTraversalMode::CURRENT_LEVEL);
+}
+
+void WantParams::RemoveAllFd()
+{
+    (void)RemoveAllFdWithStatus();
+}
+
+void WantParams::DupAllFd()
+{
+    if (fds_.empty()) {
+        return;
+    }
+    std::vector<PendingDup> pendings;
+    pendings.reserve(fds_.size());
+    for (auto &it : fds_) {
+        if (it.second == nullptr) {
+            ABILITYBASE_LOGE("null fd state found during dup, key=%{private}s", it.first.c_str());
+            continue;
+        }
+        int dupFd = it.second->DuplicateFd();
+        if (dupFd < 0) {
+            ABILITYBASE_LOGW("dup fd failed, skip key=%{private}s", it.first.c_str());
+            continue;
+        }
+        UniqueFd scoped(dupFd);
+        std::shared_ptr<WantFdState> newState = WantFdState::LegacyExplicit(dupFd);
+        if (newState == nullptr) {
+            ABILITYBASE_LOGW("create fd state failed, skip key=%{private}s", it.first.c_str());
+            continue;
+        }
+        WantParams wp;
+        wp.SetParam(TYPE_PROPERTY, String::Box(FD));
+        wp.SetParam(VALUE_PROPERTY, Integer::Box(dupFd));
+        sptr<IWantParams> marker = WantParamWrapper::Box(wp);
+        if (marker == nullptr) {
+            ABILITYBASE_LOGE("Box marker failed during dup, key=%{private}s", it.first.c_str());
+            continue;
+        }
+        pendings.push_back(PendingDup{it.first, std::move(scoped), std::move(newState), marker});
+    }
+    for (auto &p : pendings) {
+        auto [paramIt, inserted] = params_.try_emplace(p.key, p.marker);
+        if (!inserted) {
+            paramIt->second = p.marker;
+        }
+        auto [fdIt, fdInserted] = fds_.try_emplace(p.key, p.state);
+        if (!fdInserted) {
+            fdIt->second = p.state;
+        }
+        (void)p.fd.Release();
+    }
+}
+
+FdCloseStatus WantParams::CloseAllFdWithStatus(FdTraversalMode mode)
+{
+    if (mode == FdTraversalMode::CURRENT_LEVEL) {
+        if (fds_.empty()) {
+            return FdCloseStatus::NO_FDS;
+        }
+        bool anyFailed = false;
+        for (auto it : fds_) {
+            params_.erase(it.first);
+            if (it.second != nullptr) {
+                ABILITYBASE_LOGD("CloseAllFd key=%{public}s fd=%{public}d use_count=%{public}ld",
+                    it.first.c_str(), it.second->GetFdValue(), it.second.use_count());
+                anyFailed |= (it.second->CloseOnce() == FdCloseResult::FAILED);
+            }
+        }
+        fds_.clear();
+        return anyFailed ? FdCloseStatus::PARTIAL : FdCloseStatus::SUCCESS;
+    }
+    bool found = false;
+    bool anyFailed = false;
+    CloseAllFdsRecursive(*this, 1, found, anyFailed);
+    if (!found) {
+        return FdCloseStatus::NO_FDS;
+    }
+    return anyFailed ? FdCloseStatus::PARTIAL : FdCloseStatus::SUCCESS;
+}
+
+FdRemoveStatus WantParams::RemoveAllFdWithStatus()
+{
+    if (fds_.empty()) {
+        return FdRemoveStatus::NO_FDS;
+    }
+    for (auto it : fds_) {
+        params_.erase(it.first);
+    }
+    fds_.clear();
+    return FdRemoveStatus::SUCCESS;
+}
+
 
 void WantParams::GetCachedUnsupportedData(std::vector<UnsupportedData> &cachedUnsupportedData) const
 {
