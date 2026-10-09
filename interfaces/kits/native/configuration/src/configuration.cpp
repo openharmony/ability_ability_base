@@ -26,6 +26,23 @@ namespace AppExecFwk {
 namespace {
 constexpr int CYCLE_LIMIT = 1000;
 
+class ConfigurationLock final {
+public:
+    ConfigurationLock(std::recursive_mutex &mutex, std::recursive_mutex &otherMutex)
+        : lock_(mutex, std::defer_lock), otherLock_(otherMutex, std::defer_lock)
+    {
+        if (&mutex == &otherMutex) {
+            lock_.lock();
+        } else {
+            std::lock(lock_, otherLock_);
+        }
+    }
+
+private:
+    std::unique_lock<std::recursive_mutex> lock_;
+    std::unique_lock<std::recursive_mutex> otherLock_;
+};
+
 bool IsKeyInWhitelist(const std::string &param)
 {
     // Whitelist generated from the single source of truth (CONFIGURATION_KEY_LIST).
@@ -45,7 +62,7 @@ Configuration::Configuration()
 
 Configuration::Configuration(const Configuration &other) : defaultDisplayId_(other.defaultDisplayId_)
 {
-    std::lock_guard<std::recursive_mutex> lock(configParameterMutex_);
+    std::lock_guard<std::recursive_mutex> lock(other.configParameterMutex_);
     configParameter_ = other.configParameter_;
 }
 
@@ -55,9 +72,9 @@ Configuration& Configuration::operator=(const Configuration &other)
         return *this;
     }
 
+    ConfigurationLock lock(configParameterMutex_, other.configParameterMutex_);
     defaultDisplayId_ = other.defaultDisplayId_;
 
-    std::lock_guard<std::recursive_mutex> lock(configParameterMutex_);
     configParameter_.clear();
     configParameter_ = other.configParameter_;
     return *this;
@@ -154,10 +171,10 @@ void Configuration::CompareDifferent(std::vector<std::string> &diffKeyV, const C
     if (other.GetItemSize() == 0) {
         return;
     }
+    ConfigurationLock lock(configParameterMutex_, other.configParameterMutex_);
     std::vector<std::string> otherk;
     other.GetAllKey(otherk);
 
-    std::lock_guard<std::recursive_mutex> lock(configParameterMutex_);
     for (const auto &iter : otherk) {
         ABILITYBASE_LOGD("iter:%{public}s,Val:%{public}s", iter.c_str(), other.GetValue(iter).c_str());
         auto otherItem = other.GetValue(iter);
@@ -176,7 +193,7 @@ void Configuration::Merge(const std::vector<std::string> &diffKeyV, const Config
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(configParameterMutex_);
+    ConfigurationLock lock(configParameterMutex_, other.configParameterMutex_);
     for (const auto &mergeItemKey : diffKeyV) {
         auto myItem = GetValue(mergeItemKey);
         auto otherItem = other.GetValue(mergeItemKey);
@@ -319,10 +336,10 @@ void Configuration::FilterDuplicates(const Configuration &other)
     if (other.GetItemSize() == 0) {
         return;
     }
+    ConfigurationLock lock(configParameterMutex_, other.configParameterMutex_);
     std::vector<std::string> otherk;
     other.GetAllKey(otherk);
 
-    std::lock_guard<std::recursive_mutex> lock(configParameterMutex_);
     for (const auto &iter : otherk) {
         auto myItem = GetValue(iter);
         auto otherItem = other.GetValue(iter);
