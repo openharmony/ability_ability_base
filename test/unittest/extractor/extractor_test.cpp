@@ -18,7 +18,6 @@
 #include <iostream>
 #define private public
 #define protected public
-#include "extract_resource_manager.h"
 #include "zip_file.h"
 #include "zip_file_reader_io.h"
 #include "extractor.h"
@@ -476,21 +475,6 @@ HWTEST_F(ExtractorTest, GetData_001, TestSize.Level1)
     extractor1->GetSafeData(fileName);
     bool res = extractor1->IsHapCompress(fileName);
     EXPECT_EQ(res, false);
-}
-
-/*
- * Feature: ExtractResourceManager
- * Function: SetGlobalObject
- * SubFunction: NA
- * EnvConditions: NA
- * CaseDescription: Create ExtractResourceManager, call SetGlobalObject function.
- */
-HWTEST_F(ExtractorTest, SetGlobalObject_001, TestSize.Level1)
-{
-    std::shared_ptr<Global::Resource::ResourceManager> resourceManager = nullptr;
-    std::shared_ptr<ExtractResourceManager> ers = std::make_shared<ExtractResourceManager>();
-    ers->SetGlobalObject(resourceManager);
-    EXPECT_EQ(ers->GetGlobalObject(), nullptr);
 }
 
 /*
